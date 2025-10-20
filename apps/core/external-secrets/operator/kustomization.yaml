@@ -1,0 +1,6 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - https://github.com/redhat-cop/gitops-catalog.git/external-secrets-operator/operator/overlays/stable?ref=6f01451e87ef85a436b49a0287018e3c57bf9c93
+components:
+  - ../../../../catalog/components/syncwaves/operators
