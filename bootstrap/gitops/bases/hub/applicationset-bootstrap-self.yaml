@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: bootstrap-self
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - git:
+        repoURL: &repo https://github.com/ayjM6/cluster-config
+        revision: &rev HEAD
+        directories:
+          - path: bootstrap/*/overlays/all
+          - path: bootstrap/*/overlays/hub
+        values:
+          app: '{{ index .path.segments 1 }}'
+  template:
+    metadata:
+      name: 'bootstrap-self-{{ .values.app }}'
+    spec:
+      project: default
+      source:
+        repoURL: *repo
+        targetRevision: *rev
+        path: '{{ .path.path }}'
+      destination:
+        name: in-cluster
+      syncPolicy:
+        automated:
+          selfHeal: true
+          prune: true
