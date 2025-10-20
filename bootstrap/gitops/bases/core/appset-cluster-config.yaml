@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: bootstrap-self
+  name: cluster-config
 spec:
   goTemplate: true
   goTemplateOptions: ["missingkey=error"]
@@ -10,13 +10,18 @@ spec:
         repoURL: &repo https://github.com/ayjM6/cluster-config
         revision: &rev HEAD
         directories:
-          - path: bootstrap/*/overlays/all
-          - path: bootstrap/*/overlays/hub
+          - path: apps/*/*/overlays/all
+          - path: apps/*/*/overlays # cluster-type
+          - path: apps/*/*/overlays # cluster-env
+          - path: apps/*/*/overlays # cluster-name
         values:
-          app: '{{ index .path.segments 1 }}'
+          type: '{{ index .path.segments 1 }}'
+          app: '{{ index .path.segments 2 }}'
   template:
     metadata:
-      name: 'bootstrap-self-{{ .values.app }}'
+      name: '{{ .values.app }}'
+      labels:
+        type: '{{ .values.type }}'
     spec:
       project: default
       source:
@@ -29,3 +34,6 @@ spec:
         automated:
           selfHeal: true
           prune: true
+        syncPolicy:
+          syncOptions:
+            - ApplyOutOfSyncOnly=true

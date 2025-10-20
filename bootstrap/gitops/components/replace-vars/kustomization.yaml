@@ -1,0 +1,37 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+replacements:
+  - source:
+      kind: ConfigMap
+      name: vars
+      fieldPath: data.type
+    targets:
+      - select:
+          kind: ApplicationSet
+        fieldPaths:
+          - spec.generators.0.git.directories.1.path
+        options: &opts
+          delimiter: /
+          index: 99
+
+  - source:
+      kind: ConfigMap
+      name: vars
+      fieldPath: data.env
+    targets:
+      - select:
+          kind: ApplicationSet
+        fieldPaths:
+          - spec.generators.0.git.directories.2.path
+        options: *opts
+
+  - source:
+      kind: ConfigMap
+      name: vars
+      fieldPath: data.name
+    targets:
+      - select:
+          kind: ApplicationSet
+        fieldPaths:
+          - spec.generators.0.git.directories.3.path
+        options: *opts

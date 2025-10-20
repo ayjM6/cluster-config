@@ -4,3 +4,11 @@ resources:
   - ../../bases/hub
 components:
   - ../../components/namespace
+  - ../../components/replace-vars
+
+configMapGenerator:
+  - name: vars
+    behavior: merge
+    literals:
+      - name=hub-a
+      - env=hub-prod
