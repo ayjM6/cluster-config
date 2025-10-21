@@ -13,7 +13,6 @@ replacements:
         options: &opts
           delimiter: /
           index: 99
-
   - source:
       kind: ConfigMap
       name: vars
@@ -24,7 +23,6 @@ replacements:
         fieldPaths:
           - spec.generators.0.git.directories.2.path
         options: *opts
-
   - source:
       kind: ConfigMap
       name: vars

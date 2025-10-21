@@ -5,7 +5,6 @@ resources:
 components:
   - ../../components/namespace
   - ../../components/replace-vars
-
 configMapGenerator:
   - name: vars
     behavior: merge
