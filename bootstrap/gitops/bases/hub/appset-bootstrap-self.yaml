@@ -5,6 +5,8 @@ metadata:
 spec:
   goTemplate: true
   goTemplateOptions: ["missingkey=error"]
+  syncPolicy:
+    preserveResourcesOnDeletion: true
   generators:
     - git:
         repoURL: &repo https://github.com/ayjM6/cluster-config
@@ -36,3 +38,4 @@ spec:
           prune: true
         syncOptions:
           - ApplyOutOfSyncOnly=true
+          - SkipDryRunOnMissingResource=true
