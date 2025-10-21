@@ -32,8 +32,8 @@ spec:
         name: in-cluster
       syncPolicy:
         automated:
+          enabled: true
           selfHeal: true
           prune: true
-        syncPolicy:
-          syncOptions:
-            - ApplyOutOfSyncOnly=true
+        syncOptions:
+          - ApplyOutOfSyncOnly=true
