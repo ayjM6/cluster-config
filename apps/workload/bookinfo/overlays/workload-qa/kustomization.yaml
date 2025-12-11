@@ -11,3 +11,10 @@ patches:
     - op: replace
       path: /spec/template/spec/containers/0/imagePullPolicy
       value: Always
+- target:
+    kind: Deployment
+    name: reviews-v2
+  patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/image
+      value: quay.io/sail-dev/examples-bookinfo-reviews-v2:1.21.0
