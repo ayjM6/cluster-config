@@ -8,6 +8,13 @@
 # (rather than diffing changed files) means transitive changes — e.g. an edit to
 # a shared base/ or components/ dir — show up against every overlay they affect.
 #
+# Diffs are produced with dyff, which compares the manifests semantically:
+# resources are matched by kind/name/namespace, so document reordering and key
+# ordering never show up as spurious changes. dyff cannot compare streams with a
+# differing document count when it can't key the documents (notably a set of
+# same-kind resources, or one side rendering empty); those cases fall back to a
+# plain `diff -u` so a real change is never silently dropped.
+#
 # Usage: kustomize-overlay-diff.sh <base-tree> <head-tree> <output.md>
 set -euo pipefail
 
@@ -15,7 +22,7 @@ BASE_DIR="${1:?usage: kustomize-overlay-diff.sh <base-tree> <head-tree> <output.
 HEAD_DIR="${2:?missing head tree}"
 OUT="${3:?missing output file}"
 
-# Cap each diff so one huge overlay can't blow past GitHub's comment size limit.
+# Cap each block so one huge overlay can't blow past GitHub's comment size limit.
 MAX_DIFF_LINES="${MAX_DIFF_LINES:-400}"
 
 workdir="$(mktemp -d)"
@@ -32,11 +39,21 @@ list_overlays() {
       | sort )
 }
 
-# Render an overlay from a tree into $1 (stdout file). Returns kustomize's exit
-# code; on failure the stderr is left in $1 so the report can show the error.
+# Render an overlay; manifests to $1, stderr to $1.err. Returns kustomize's rc.
 render() {
   local out="$1" root="$2" overlay="$3"
   kustomize build "$root/$overlay" >"$out" 2>"$out.err"
+}
+
+# Truncate text on stdin to MAX_DIFF_LINES, appending a note if it was clipped.
+truncate_block() {
+  local total; total="$(wc -l <"$1")"
+  if [ "$total" -gt "$MAX_DIFF_LINES" ]; then
+    head -n "$MAX_DIFF_LINES" "$1"
+    printf '\n... truncated (%s lines total) — render locally with `kustomize build`.\n' "$total"
+  else
+    cat "$1"
+  fi
 }
 
 # Build the union of overlay paths present on either branch.
@@ -53,51 +70,43 @@ for overlay in "${overlays[@]}"; do
   base_out="$workdir/base.yaml"; : >"$base_out"; : >"$base_out.err"
   head_out="$workdir/head.yaml"; : >"$head_out"; : >"$head_out.err"
   base_rc=0; head_rc=0
+  $base_present && { render "$base_out" "$BASE_DIR" "$overlay" || base_rc=$?; }
+  $head_present && { render "$head_out" "$HEAD_DIR" "$overlay" || head_rc=$?; }
 
-  if $base_present; then render "$base_out" "$BASE_DIR" "$overlay" || base_rc=$?; fi
-  if $head_present; then render "$head_out" "$HEAD_DIR" "$overlay" || head_rc=$?; fi
-
-  # A build error on the PR head is always worth reporting.
+  # A build error on the PR head is always worth reporting, loudly.
   if $head_present && [ "$head_rc" -ne 0 ]; then
     summary_rows+=("| \`$overlay\` | 🛑 build failed |")
-    err="$(cat "$head_out.err")"
     changed+=("$(printf '<details open><summary>🛑 <code>%s</code> — kustomize build failed</summary>\n\n```\n%s\n```\n\n</details>' \
-      "$overlay" "$err")")
+      "$overlay" "$(cat "$head_out.err")")")
     continue
   fi
 
-  # Classify the change.
-  local_status=""
+  body_file="$workdir/body.txt"
   if ! $base_present && $head_present; then
-    local_status="added"
+    icon="🟢"; label="new overlay"; fence="yaml"
+    cp "$head_out" "$body_file"
   elif $base_present && ! $head_present; then
-    local_status="removed"
-  elif cmp -s "$base_out" "$head_out"; then
-    continue   # rendered output identical — nothing to report
+    icon="🔴"; label="overlay removed"; fence="yaml"
+    cp "$base_out" "$body_file"
   else
-    local_status="modified"
+    # Both present (base build failures are surfaced inside the diff via dyff/diff).
+    dyff_rc=0
+    dyff between --set-exit-code --omit-header --output github \
+      "$base_out" "$head_out" >"$body_file" 2>"$workdir/dyff.err" || dyff_rc=$?
+    case "$dyff_rc" in
+      0) continue ;;                  # semantically identical — nothing to report
+      1) icon="🟡"; label="modified"; fence="diff" ;;
+      *)                              # dyff couldn't compare — fall back to textual diff
+        icon="🟡"; label="modified (textual diff — dyff unavailable)"; fence="diff"
+        diff -u "$base_out" "$head_out" \
+          --label "a/$overlay" --label "b/$overlay" >"$body_file" || true
+        ;;
+    esac
   fi
-
-  # Produce a unified diff (diff exits 1 when files differ — that's expected).
-  diff_text="$(diff -u "$base_out" "$head_out" \
-    --label "a/$overlay (base)" --label "b/$overlay (head)" || true)"
-
-  total_lines="$(printf '%s\n' "$diff_text" | wc -l)"
-  truncated=""
-  if [ "$total_lines" -gt "$MAX_DIFF_LINES" ]; then
-    diff_text="$(printf '%s\n' "$diff_text" | head -n "$MAX_DIFF_LINES")"
-    truncated=$'\n... diff truncated ('"$total_lines"$' lines total) — render locally with `kustomize build` to see the full output.'
-  fi
-
-  case "$local_status" in
-    added)    icon="🟢"; label="new overlay" ;;
-    removed)  icon="🔴"; label="overlay removed" ;;
-    modified) icon="🟡"; label="modified" ;;
-  esac
 
   summary_rows+=("| \`$overlay\` | $icon $label |")
-  changed+=("$(printf '<details><summary>%s <code>%s</code> — %s</summary>\n\n```diff\n%s%s\n```\n\n</details>' \
-    "$icon" "$overlay" "$label" "$diff_text" "$truncated")")
+  changed+=("$(printf '<details><summary>%s <code>%s</code> — %s</summary>\n\n```%s\n%s\n```\n\n</details>' \
+    "$icon" "$overlay" "$label" "$fence" "$(truncate_block "$body_file")")")
 done
 
 # Assemble the report.
@@ -108,7 +117,7 @@ done
   if [ "${#changed[@]}" -eq 0 ]; then
     echo '✅ No rendered changes in any kustomize overlay.'
     echo
-    printf '_Compared %d overlay(s) against the base branch._\n' "${#overlays[@]}"
+    printf '_Compared %d overlay(s) against the base branch with dyff._\n' "${#overlays[@]}"
   else
     printf '%d of %d overlay(s) changed:\n\n' "${#changed[@]}" "${#overlays[@]}"
     echo '| Overlay | Status |'

@@ -16,6 +16,7 @@ concurrency:
 
 env:
   KUSTOMIZE_VERSION: "5.8.0"
+  DYFF_VERSION: "1.10.1"
 
 jobs:
   kustomize-diff:
@@ -36,6 +37,14 @@ jobs:
           curl -fsSL "$url" -o /tmp/kustomize.tar.gz
           tar -xzf /tmp/kustomize.tar.gz -C /usr/local/bin kustomize
           kustomize version
+
+      - name: Install dyff
+        run: |
+          set -euo pipefail
+          url="https://github.com/homeport/dyff/releases/download/v${DYFF_VERSION}/dyff_${DYFF_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL "$url" -o /tmp/dyff.tar.gz
+          tar -xzf /tmp/dyff.tar.gz -C /usr/local/bin dyff
+          dyff version
 
       - name: Check out base branch into a worktree
         run: git worktree add /tmp/base-tree "origin/${{ github.event.pull_request.base.ref }}"
