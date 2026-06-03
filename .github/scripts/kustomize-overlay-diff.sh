@@ -18,9 +18,48 @@
 # Usage: kustomize-overlay-diff.sh <base-tree> <head-tree> <output.md>
 set -euo pipefail
 
-BASE_DIR="${1:?usage: kustomize-overlay-diff.sh <base-tree> <head-tree> <output.md>}"
-HEAD_DIR="${2:?missing head tree}"
-OUT="${3:?missing output file}"
+prog="$(basename "$0")"
+
+# Print usage. Writes to stdout for an explicit --help, stderr otherwise so it
+# doesn't pollute a piped result; the caller chooses the exit code.
+usage() {
+  cat <<EOF
+Usage: $prog <base-tree> <head-tree> <output.md>
+
+Render every kustomize overlay found in each tree and write a Markdown report
+of the overlays whose rendered output differs between them.
+
+Arguments:
+  base-tree    Path to the checkout to compare against (e.g. the target branch).
+  head-tree    Path to the checkout under review (e.g. the PR head).
+  output.md    File to write the Markdown report to (overwritten if it exists).
+
+Environment:
+  MAX_DIFF_LINES   Truncate each overlay's diff block to this many lines
+                   (default: 400) to stay under GitHub's comment size limit.
+
+Requires kustomize and dyff on PATH.
+EOF
+}
+
+# Show full help on request, before any argument validation.
+case "${1:-}" in
+  -h | --help)
+    usage
+    exit 0
+    ;;
+esac
+
+if [ "$#" -ne 3 ]; then
+  echo "$prog: error: expected 3 arguments, got $#." >&2
+  echo >&2
+  usage >&2
+  exit 2
+fi
+
+BASE_DIR="$1"
+HEAD_DIR="$2"
+OUT="$3"
 
 # Cap each block so one huge overlay can't blow past GitHub's comment size limit.
 MAX_DIFF_LINES="${MAX_DIFF_LINES:-400}"
