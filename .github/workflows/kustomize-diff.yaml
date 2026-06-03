@@ -49,18 +49,21 @@ jobs:
       - name: Check out base branch into a worktree
         run: git worktree add /tmp/base-tree "origin/${{ github.event.pull_request.base.ref }}"
 
-      - name: Render base overlays
-        run: .github/scripts/kustomize-build-overlays.sh /tmp/base-tree /tmp/base-rendered
+      # Each call builds a single revision. Both write into the main repo's
+      # top-level target/ directory (target/base and target/head), even though
+      # the base ref lives in a separate worktree.
+      - name: Render head overlays (current ref)
+        run: scripts/kustomize-build-overlays.sh "$GITHUB_WORKSPACE" head
 
-      - name: Render head overlays
-        run: .github/scripts/kustomize-build-overlays.sh "$GITHUB_WORKSPACE" /tmp/head-rendered
+      - name: Render base overlays (target branch)
+        run: scripts/kustomize-build-overlays.sh /tmp/base-tree base
 
       - name: Diff rendered overlays
         run: |
-          .github/scripts/kustomize-diff-overlays.sh \
-            /tmp/base-rendered \
-            /tmp/head-rendered \
-            "$GITHUB_WORKSPACE/kustomize-diff.md"
+          scripts/kustomize-diff-overlays.sh \
+            "$GITHUB_WORKSPACE/target/base" \
+            "$GITHUB_WORKSPACE/target/head" \
+            "$GITHUB_WORKSPACE/target/kustomize-diff.md"
 
       - name: Post diff comment
         uses: actions/github-script@v7
@@ -68,7 +71,7 @@ jobs:
           script: |
             const fs = require('fs');
             const marker = '<!-- kustomize-overlay-diff -->';
-            let body = fs.readFileSync('kustomize-diff.md', 'utf8');
+            let body = fs.readFileSync('target/kustomize-diff.md', 'utf8');
 
             // GitHub rejects comments larger than 65536 characters.
             const LIMIT = 65000;
