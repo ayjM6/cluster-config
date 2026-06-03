@@ -49,11 +49,17 @@ jobs:
       - name: Check out base branch into a worktree
         run: git worktree add /tmp/base-tree "origin/${{ github.event.pull_request.base.ref }}"
 
-      - name: Render overlays and build diff report
+      - name: Render base overlays
+        run: .github/scripts/kustomize-build-overlays.sh /tmp/base-tree /tmp/base-rendered
+
+      - name: Render head overlays
+        run: .github/scripts/kustomize-build-overlays.sh "$GITHUB_WORKSPACE" /tmp/head-rendered
+
+      - name: Diff rendered overlays
         run: |
-          .github/scripts/kustomize-overlay-diff.sh \
-            /tmp/base-tree \
-            "$GITHUB_WORKSPACE" \
+          .github/scripts/kustomize-diff-overlays.sh \
+            /tmp/base-rendered \
+            /tmp/head-rendered \
             "$GITHUB_WORKSPACE/kustomize-diff.md"
 
       - name: Post diff comment
