@@ -1,28 +1,36 @@
 #!/usr/bin/env bash
 #
-# Render every kustomize overlay of a SINGLE revision of the repository into the
-# main repository's top-level target/ directory, so a later step can diff two
-# revisions without re-running kustomize.
+# Render every kustomize overlay of a SINGLE revision of the repository into an
+# output directory, so a later step can diff two revisions without re-running
+# kustomize.
 #
 # By default the current working tree is built — no worktrees are created. Pass
 # --revision <revision> to instead build a specific git revision: a detached
 # worktree is created for it, its overlays are rendered, and the worktree is
 # removed again before the command returns.
 #
-# Either way the output lands under the *main* repository's target/ directory,
-# in the subdirectory named by <name>. For each overlay, mirroring its path:
+# The output directory (--output-dir) is optional. When omitted it defaults,
+# under the main repository's top level, to:
 #
-#   <main-repo>/target/<name>/<overlay>/manifest.yaml   rendered manifests
-#   <main-repo>/target/<name>/<overlay>/stderr          kustomize stderr
-#   <main-repo>/target/<name>/<overlay>/status          kustomize exit code
+#   target/manifests/HEAD          when no revision is given
+#   target/manifests/<revision>    when --revision <revision> is given
+#
+# Within the output directory, for each overlay (mirroring its path):
+#
+#   <output-dir>/<overlay>/manifest.yaml   rendered manifests
+#   <output-dir>/<overlay>/stderr          kustomize stderr
+#   <output-dir>/<overlay>/status          kustomize exit code
 #
 # An "overlay" is any directory that is an immediate child of a directory named
 # "overlays" and that contains a kustomization.yaml. A build failure is recorded
 # (non-zero status) rather than aborting the run, so the diff step can report it;
 # this command still exits 0 in that case.
 #
-# Usage: kustomize-build-overlays.sh [--revision <revision>] <name>
+# Usage: kustomize-build-overlays.sh [--revision <revision>] [--output-dir <dir>]
 set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+repo_dir="$(dirname "$script_dir")"
 
 prog="$(basename "$0")"
 
@@ -30,29 +38,30 @@ prog="$(basename "$0")"
 # doesn't pollute a piped result; the caller chooses the exit code.
 usage() {
   cat <<EOF
-Usage: $prog [--revision <revision>] <name>
+Usage: $prog [--revision <revision>] [--output-dir <dir>]
 
-Render every kustomize overlay of a single revision into <main-repo>/target/<name>,
-where <main-repo> is the top level of the main git repository. For each overlay a
-directory mirroring its path is created containing manifest.yaml (rendered
-output), stderr, and status (the kustomize exit code).
+Render every kustomize overlay of a single revision into an output directory.
+For each overlay a directory mirroring its path is created containing
+manifest.yaml (rendered output), stderr, and status (the kustomize exit code).
 
 Options:
-  --revision <rev>   Build this git revision (branch, tag or commit) in a
-                     temporary detached worktree that is removed afterwards.
-                     When omitted, the current working tree is built directly
-                     and no worktree is created.
-
-Arguments:
-  name               Subdirectory of target/ to write this revision's output
-                     into (e.g. "base" or "head"; letters, digits, ., _ and -).
+  --revision <rev>     Build this git revision (branch, tag or commit) in a
+                       temporary detached worktree that is removed afterwards.
+                       When omitted, the current working tree is built directly
+                       and no worktree is created.
+  -o, --output-dir <dir>
+                       Directory to render into. Its contents are replaced on
+                       each run. Defaults, under the main repository's top level,
+                       to target/manifests/HEAD (no revision) or
+                       target/manifests/<revision> (with --revision).
 
 Requires kustomize and git on PATH.
 EOF
 }
 
 revision=""
-positional=()
+output_dir=""
+output_set=false
 while [ "$#" -gt 0 ]; do
   case "$1" in
     -h | --help)
@@ -68,9 +77,20 @@ while [ "$#" -gt 0 ]; do
       revision="${1#--revision=}"
       shift
       ;;
+    -o | --output-dir)
+      [ "$#" -ge 2 ] || { echo "$prog: error: --output-dir requires a value." >&2; exit 2; }
+      output_dir="$2"
+      output_set=true
+      shift 2
+      ;;
+    --output-dir=*)
+      output_dir="${1#--output-dir=}"
+      output_set=true
+      shift
+      ;;
     --)
       shift
-      while [ "$#" -gt 0 ]; do positional+=("$1"); shift; done
+      break
       ;;
     -*)
       echo "$prog: error: unknown option '$1'." >&2
@@ -79,57 +99,57 @@ while [ "$#" -gt 0 ]; do
       exit 2
       ;;
     *)
-      positional+=("$1")
-      shift
+      echo "$prog: error: unexpected argument '$1' (set the output directory with --output-dir)." >&2
+      echo >&2
+      usage >&2
+      exit 2
       ;;
   esac
 done
 
-if [ "${#positional[@]}" -ne 1 ]; then
-  echo "$prog: error: expected a single <name> argument, got ${#positional[@]}." >&2
+if [ "$#" -gt 0 ]; then
+  echo "$prog: error: unexpected argument '$1' (set the output directory with --output-dir)." >&2
   echo >&2
   usage >&2
   exit 2
 fi
-NAME="${positional[0]}"
 
-if ! [[ "$NAME" =~ ^[A-Za-z0-9._-]+$ ]]; then
-  echo "$prog: error: name '$NAME' must contain only letters, digits, '.', '_' or '-'." >&2
+if $output_set && [ -z "$output_dir" ]; then
+  echo "$prog: error: --output-dir requires a non-empty value." >&2
   exit 2
 fi
 
-# Resolve the main repository's top level from the current directory.
-# --git-common-dir points at the main repo's .git even from a linked worktree, so
-# its parent is the main working tree — every call writes into the same target/.
-common_dir="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || {
-  echo "$prog: error: not inside a git repository." >&2
-  exit 2
-}
-main_root="$(dirname "$common_dir")"
-OUT="$main_root/target/$NAME"
+# Output directory: explicit --output-dir if given, otherwise revision-aware default.
+if $output_set; then
+  OUT="$output_dir"
+elif [ -n "$revision" ]; then
+  OUT="$repo_dir/target/manifests/$revision"
+else
+  OUT="$repo_dir/target/manifests/HEAD"
+fi
 
 # When building a specific revision, render it from a throwaway detached worktree
 # and make sure that worktree is cleaned up however the script exits.
 tmp_parent=""
 worktree_dir=""
 cleanup() {
-  [ -n "$worktree_dir" ] && git -C "$main_root" worktree remove --force "$worktree_dir" 2>/dev/null || true
+  [ -n "$worktree_dir" ] && git -C "$repo_dir" worktree remove --force "$worktree_dir" 2>/dev/null || true
   [ -n "$tmp_parent" ] && rm -rf "$tmp_parent"
 }
 
 if [ -n "$revision" ]; then
-  if ! git -C "$main_root" rev-parse --verify --quiet "${revision}^{commit}" >/dev/null; then
+  if ! git -C "$repo_dir" rev-parse --verify --quiet "${revision}^{commit}" >/dev/null; then
     echo "$prog: error: revision '$revision' not found." >&2
     exit 2
   fi
   trap cleanup EXIT
   tmp_parent="$(mktemp -d)"
   worktree_dir="$tmp_parent/worktree"
-  git -C "$main_root" worktree add --detach "$worktree_dir" "$revision" >/dev/null
+  git -C "$repo_dir" worktree add --detach "$worktree_dir" "$revision" >/dev/null
   SRC="$worktree_dir"
   src_label="revision $revision"
 else
-  SRC="$(git rev-parse --show-toplevel)"
+  SRC="$repo_dir"
   src_label="working tree $SRC"
 fi
 

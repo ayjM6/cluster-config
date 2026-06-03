@@ -47,20 +47,21 @@ jobs:
           dyff version
 
       # Each call builds a single revision into the main repo's top-level
-      # target/ directory (target/base and target/head). The head build renders
-      # the current checkout directly; the base build renders the target branch
-      # in a throwaway worktree the script manages itself.
+      # target/manifests/ directory. The head build renders the current checkout
+      # directly (-> target/manifests/HEAD); the base build renders the target
+      # branch in a throwaway worktree the script manages itself
+      # (-> target/manifests/origin/<base>).
       - name: Render head overlays (current ref)
-        run: scripts/kustomize-build-overlays.sh head
+        run: scripts/kustomize-build-overlays.sh
 
       - name: Render base overlays (target branch)
-        run: scripts/kustomize-build-overlays.sh --revision "origin/${{ github.event.pull_request.base.ref }}" base
+        run: scripts/kustomize-build-overlays.sh --revision "origin/${{ github.event.pull_request.base.ref }}"
 
       - name: Diff rendered overlays
         run: |
           scripts/kustomize-diff-overlays.sh \
-            "$GITHUB_WORKSPACE/target/base" \
-            "$GITHUB_WORKSPACE/target/head" \
+            "$GITHUB_WORKSPACE/target/manifests/origin/${{ github.event.pull_request.base.ref }}" \
+            "$GITHUB_WORKSPACE/target/manifests/HEAD" \
             "$GITHUB_WORKSPACE/target/kustomize-diff.md"
 
       - name: Post diff comment
