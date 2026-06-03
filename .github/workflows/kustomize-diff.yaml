@@ -46,17 +46,15 @@ jobs:
           tar -xzf /tmp/dyff.tar.gz -C /usr/local/bin dyff
           dyff version
 
-      - name: Check out base branch into a worktree
-        run: git worktree add /tmp/base-tree "origin/${{ github.event.pull_request.base.ref }}"
-
-      # Each call builds a single revision. Both write into the main repo's
-      # top-level target/ directory (target/base and target/head), even though
-      # the base ref lives in a separate worktree.
+      # Each call builds a single revision into the main repo's top-level
+      # target/ directory (target/base and target/head). The head build renders
+      # the current checkout directly; the base build renders the target branch
+      # in a throwaway worktree the script manages itself.
       - name: Render head overlays (current ref)
-        run: scripts/kustomize-build-overlays.sh "$GITHUB_WORKSPACE" head
+        run: scripts/kustomize-build-overlays.sh head
 
       - name: Render base overlays (target branch)
-        run: scripts/kustomize-build-overlays.sh /tmp/base-tree base
+        run: scripts/kustomize-build-overlays.sh --revision "origin/${{ github.event.pull_request.base.ref }}" base
 
       - name: Diff rendered overlays
         run: |
