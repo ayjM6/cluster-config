@@ -76,7 +76,7 @@ kustomize_build() {
 	local abs_kustomize_dir=$(realpath "$kustomize_dir")
 
 	# Ensure that the kustomize directory is a subdirectory of the root dir
-	if [[ "$abs_kustomize_dir" != "$root_dir" || "$abs_kustomize_dir" != "$root_dir/"* ]]; then
+	if [[ "$abs_kustomize_dir" == "$root_dir" || "$abs_kustomize_dir" != "$root_dir/"* ]]; then
 		echo "Error: Directory '$kustomize_dir' is not contained within the root directory ($root_dir)." >&2
 		return 1
 	fi
