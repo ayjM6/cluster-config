@@ -31,7 +31,6 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 repo_dir="$(dirname "$script_dir")"
-
 prog="$(basename "$0")"
 
 # Print usage. Writes to stdout for an explicit --help, stderr otherwise so it
