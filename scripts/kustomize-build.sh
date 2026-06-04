@@ -2,14 +2,27 @@
 
 set -euo pipefail
 
-TARGET_DIR="target/manifests"
+ORIGINAL_PWD="$PWD"
 ROOT_DIR="$PWD"
+TARGET_DIR="target/manifests"
+WORKTREE_ROOT_DIR="target/worktrees"
+GIT_REF=""
+
 BUILD_DIRS=()
 KUSTOMIZE_ARGS=()
 
 parse_args() {
 	while [[ "$#" -gt 0 ]]; do
 		case $1 in
+		--ref)
+			if [[ -n "${2:-}" && "$2" != -* ]]; then
+				GIT_REF="$2"
+				shift 2
+			else
+				echo "Error: Argument for $1 is missing." >&2
+				return 1
+			fi
+			;;
 		-t | --target-dir)
 			if [[ -n "$2" && "$2" != -* ]]; then
 				TARGET_DIR="$2"
@@ -100,12 +113,12 @@ kustomize_build() {
 }
 
 kustomize_build_all() {
+	local out_dir="$1"
 	local abs_root=$(realpath "$ROOT_DIR")
-	local abs_out_dir=$(realpath "$TARGET_DIR")
 
 	echo "--- Starting Kustomize Build ---"
-	echo "Root Directory   : $ROOT_DIR"
-	echo "Output Directory : $TARGET_DIR"
+	echo "Root Directory   : $abs_root"
+	echo "Output Directory : $out_dir"
 	echo "Kustomize Args   : ${KUSTOMIZE_ARGS[*]}"
 	echo "Target Dirs      : ${BUILD_DIRS[*]}"
 	echo "--------------------------------"
@@ -113,7 +126,7 @@ kustomize_build_all() {
 	local build_failed=0
 	local failed_dirs=()
 	for kustomize_dir in "${BUILD_DIRS[@]}"; do
-		if ! kustomize_build "$kustomize_dir" "$abs_root" "$abs_out_dir"; then
+		if ! kustomize_build "$kustomize_dir" "$abs_root" "$out_dir"; then
 			build_failed=1
 			failed_dirs+=("$kustomize_dir")
 		fi
@@ -133,6 +146,41 @@ kustomize_build_all() {
 	fi
 }
 
+cleanup() {
+	# Step out of the worktree back to the original directory before deleting
+	cd "$ORIGINAL_PWD" || true
+	if [[ -n "$WORKTREE_DIR" && -d "$WORKTREE_DIR" ]]; then
+		git worktree remove --force "$WORKTREE_DIR" >/dev/null 2>&1 || rm -rf "$WORKTREE_DIR"
+	fi
+}
+
+# Create a worktree to cheaply build the manifests from the given git ref
+setup_worktree() {
+	# make sure we're running at the root of the git repository if working with worktrees
+	if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+		echo "Error: Not inside a Git repository." >&2
+		exit 1
+	fi
+
+	if [[ -n "$(git rev-parse --show-cdup)" ]]; then
+		echo "Error: This script must be run from the root of the Git repository." >&2
+		exit 1
+	fi
+
+	trap cleanup EXIT
+
+	local safe_ref=$(echo "$GIT_REF" | tr '/\\' '_')
+	WORKTREE_DIR="$ORIGINAL_PWD/$WORKTREE_ROOT_DIR/$safe_ref"
+	ROOT_DIR="$WORKTREE_DIR"
+
+	if ! git worktree add --detach "$WORKTREE_DIR" "$GIT_REF" >/dev/null 2>&1; then
+		echo "Error: Failed to create git worktree for ref '$GIT_REF'." >&2
+		return 1
+	fi
+
+	cd "$WORKTREE_DIR"
+}
+
 main() {
 	if ! parse_args "$@"; then
 		return 1
@@ -148,7 +196,15 @@ main() {
 		exit 1
 	fi
 
-	kustomize_build_all
+	# set abs path for target dir, before we potentially switch dirs when
+	# setting up the worktree
+	mkdir -p "$TARGET_DIR"
+	abs_target_dir="$(realpath "$TARGET_DIR")"
+
+	if [[ -n "$GIT_REF" ]]; then
+		setup_worktree || exit 1
+	fi
+	kustomize_build_all "$abs_target_dir"
 }
 
 main "$@"
