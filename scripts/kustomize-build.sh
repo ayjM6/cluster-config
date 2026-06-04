@@ -1,7 +1,7 @@
 #!/bin/bash
 
 OUTPUT_DIR="target/manifests"
-GIT_REF="HEAD"
+ROOT_DIR="$PWD"
 BUILD_DIRS=()
 KUSTOMIZE_ARGS=()
 
@@ -17,9 +17,9 @@ parse_args() {
                     return 1
                 fi
                 ;;
-            --ref)
+            -r|--root-dir)
                 if [[ -n "$2" && "$2" != -* ]]; then
-                    GIT_REF="$2"
+                    ROOT_DIR="$2"
                     shift 2
                 else
                     echo "Error: Argument for $1 is missing." >&2
@@ -36,7 +36,7 @@ parse_args() {
                 fi
                 ;;
             -h|--help)
-                echo "Usage: $0 [-d <out-dir>] [--ref <ref>] [-k <arg>] [directories...]"
+                echo "Usage: $0 [-o <out-dir>] [-r <root-dir>] [-k <arg>] [directories...]"
                 exit 0
                 ;;
             --)
@@ -67,76 +67,58 @@ parse_args() {
 }
 
 kustomize_build() {
-    local dir="$1"
-    local target_root="$2"
+    local kustomize_dir="$1"
+    local root_dir="$2"
+    local target_dir="$3"
 
-    # 1. Resolve absolute path of the target directory
-    local abs_dir
-    if ! abs_dir=$(realpath "$dir"); then
-        echo "Error: Target directory '$dir' does not exist." >&2
+    local abs_kustomize_dir=$(realpath "$kustomize_dir")
+
+    # Ensure that the kustomize directory is a subdirectory of the root dir
+    if [[ "$abs_kustomize_dir" != "$root_dir" || "$abs_kustomize_dir" != "$root_dir/"* ]]; then
+        echo "Error: Directory '$kustomize_dir' is not contained within the root directory ($root_dir)." >&2
         return 1
     fi
 
-    # 2. Strict containment check
-    if [[ "$abs_dir" != "$target_root" && "$abs_dir" != "$target_root/"* ]]; then
-        echo "Error: Directory '$dir' is not contained within the current working directory ($PWD)." >&2
-        return 1
-    fi
+    # Get the relative path to the kustomize dir from the root dir, so we can keep the
+    # structure of the output identical to the structure relative to the root dir.
+    local rel_kustomize_dir="${abs_kustomize_dir#$root_dir/}"
+    local out_dir="$target_dir/$rel_kustomize_dir"
+    local manifest_file="$out_dir/manifests.yaml"
+    local stderr_file="$out_dir/stderr"
+    mkdir -p "$out_dir"
 
-    # 3. Determine relative path to construct output folder
-    local relative_path
-    if [[ "$abs_dir" == "$target_root" ]]; then
-        relative_path="root"
-    else
-        relative_path="${abs_dir#$target_root/}"
-    fi
-
-    # 4. Construct output paths for this specific overlay
-    local overlay_out_dir="$OUTPUT_DIR/$relative_path"
-    mkdir -p "$overlay_out_dir"
-
-    local manifest_file="$overlay_out_dir/manifests.yaml"
-    local stderr_file="$overlay_out_dir/stderr"
-
-    # 5. Execute Kustomize and route outputs to the respective files
-    if kustomize build "${KUSTOMIZE_ARGS[@]}" "$dir" -o "$manifest_file" 2> "$stderr_file"; then
-        echo "[ ✅ ] $dir"
+    if kustomize build "${KUSTOMIZE_ARGS[@]}" "$kustomize_dir" -o "$manifest_file" 2> "$stderr_file"; then
+        echo "[ ✓ ] $kustomize_dir"
         return 0
     else
-        echo "[ ❌ ] $dir"
+        echo "[ ✗ ] $kustomize_dir"
         cat "$stderr_file" >&2
         return 1
     fi
 }
 
-# ==========================================
-# Master Build Controller Function
-# ==========================================
 kustomize_build_all() {
+    local abs_root=$(realpath "$ROOT_DIR")
+    local abs_out_dir=$(realpath "$OUTPUT_DIR")
+
     echo "--- Starting Kustomize Build ---"
-    echo "Git Ref          : $GIT_REF"
+    echo "Root Directory   : $ROOT_DIR"
     echo "Output Directory : $OUTPUT_DIR"
     echo "Kustomize Args   : ${KUSTOMIZE_ARGS[*]}"
     echo "Target Dirs      : ${BUILD_DIRS[*]}"
     echo "--------------------------------"
 
-    local target_root
-    if ! target_root=$(realpath "$PWD"); then
-        echo "Error: Could not resolve absolute path for working directory." >&2
-        return 1
-    fi
-
     local build_failed=0
     local failed_dirs=()
-    for dir in "${BUILD_DIRS[@]}"; do
-        if ! kustomize_build "$dir" "$target_root"; then
+    for kustomize_dir in "${BUILD_DIRS[@]}"; do
+        if ! kustomize_build "$kustomize_dir" "$abs_root" "$abs_out_dir"; then
             build_failed=1
-            failed_dirs+=("$dir")
+            failed_dirs+=("$kustomize_dir")
         fi
     done
     echo "--------------------------------"
 
-    # Check if any builds failed during the loop
+    # Check if any builds failed
     if [[ $build_failed -ne 0 ]]; then
         echo "Build completed with errors in the following directories:" >&2
         for dir in "${failed_dirs[@]}"; do
