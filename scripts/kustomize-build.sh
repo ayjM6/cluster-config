@@ -1,20 +1,14 @@
 #!/bin/bash
 
-# ==========================================
-# Global Configuration State (Defaults)
-# ==========================================
-OUTPUT_DIR="target"
+OUTPUT_DIR="target/manifests"
 GIT_REF="HEAD"
 BUILD_DIRS=()
 KUSTOMIZE_ARGS=()
 
-# ==========================================
-# Argument Parsing Function
-# ==========================================
 parse_args() {
     while [[ "$#" -gt 0 ]]; do
         case $1 in
-            -d|--directory)
+            -o|--out-dir)
                 if [[ -n "$2" && "$2" != -* ]]; then
                     OUTPUT_DIR="$2"
                     shift 2
@@ -64,21 +58,17 @@ parse_args() {
         esac
     done
 
-    # Default to current directory (.) if no directories were specified
+    # Default to build current directory
     if [[ ${#BUILD_DIRS[@]} -eq 0 ]]; then
-        echo "No directories specified. Defaulting to (.)."
         BUILD_DIRS=(".")
     fi
 
     return 0
 }
 
-# ==========================================
-# Single Overlay Build Function
-# ==========================================
 kustomize_build() {
     local dir="$1"
-    local abs_root="$2"
+    local target_root="$2"
 
     # 1. Resolve absolute path of the target directory
     local abs_dir
@@ -88,17 +78,17 @@ kustomize_build() {
     fi
 
     # 2. Strict containment check
-    if [[ "$abs_dir" != "$abs_root" && "$abs_dir" != "$abs_root/"* ]]; then
+    if [[ "$abs_dir" != "$target_root" && "$abs_dir" != "$target_root/"* ]]; then
         echo "Error: Directory '$dir' is not contained within the current working directory ($PWD)." >&2
         return 1
     fi
 
     # 3. Determine relative path to construct output folder
     local relative_path
-    if [[ "$abs_dir" == "$abs_root" ]]; then
+    if [[ "$abs_dir" == "$target_root" ]]; then
         relative_path="root"
     else
-        relative_path="${abs_dir#$abs_root/}"
+        relative_path="${abs_dir#$target_root/}"
     fi
 
     # 4. Construct output paths for this specific overlay
@@ -106,19 +96,15 @@ kustomize_build() {
     mkdir -p "$overlay_out_dir"
 
     local manifest_file="$overlay_out_dir/manifests.yaml"
-    local stdout_file="$overlay_out_dir/stdout"
     local stderr_file="$overlay_out_dir/stderr"
 
-    echo "Building: $dir"
-
     # 5. Execute Kustomize and route outputs to the respective files
-    if kustomize build "${KUSTOMIZE_ARGS[@]}" "$dir" > "$stdout_file" 2> "$stderr_file"; then
-        # Copy the raw stdout to manifests.yaml for your explicit file requirement
-        cp "$stdout_file" "$manifest_file"
-        echo "  -> Success: Generated $manifest_file"
+    if kustomize build "${KUSTOMIZE_ARGS[@]}" "$dir" -o "$manifest_file" 2> "$stderr_file"; then
+        echo "[ ✅ ] $dir"
         return 0
     else
-        echo "  -> Error: Kustomize build failed for $dir. Check $stderr_file for details." >&2
+        echo "[ ❌ ] $dir"
+        cat "$stderr_file" >&2
         return 1
     fi
 }
@@ -129,36 +115,43 @@ kustomize_build() {
 kustomize_build_all() {
     echo "--- Starting Kustomize Build ---"
     echo "Git Ref          : $GIT_REF"
-    echo "Root Directory   : $PWD"
     echo "Output Directory : $OUTPUT_DIR"
     echo "Kustomize Args   : ${KUSTOMIZE_ARGS[*]}"
     echo "Target Dirs      : ${BUILD_DIRS[*]}"
     echo "--------------------------------"
 
-    # Resolve absolute path of the root directory once to pass down to workers
-    local abs_root
-    if ! abs_root=$(realpath "$PWD"); then
-        echo "Error: Could not resolve absolute path for current working directory." >&2
-        exit 1
+    local target_root
+    if ! target_root=$(realpath "$PWD"); then
+        echo "Error: Could not resolve absolute path for working directory." >&2
+        return 1
     fi
 
+    local build_failed=0
+    local failed_dirs=()
     for dir in "${BUILD_DIRS[@]}"; do
-        if ! kustomize_build "$dir" "$abs_root"; then
-            # Fail fast on the first error
-            exit 1
+        if ! kustomize_build "$dir" "$target_root"; then
+            build_failed=1
+            failed_dirs+=("$dir")
         fi
     done
-
     echo "--------------------------------"
-    echo "Build process completed successfully."
+
+    # Check if any builds failed during the loop
+    if [[ $build_failed -ne 0 ]]; then
+        echo "Build completed with errors in the following directories:" >&2
+        for dir in "${failed_dirs[@]}"; do
+            echo "  - $dir" >&2
+        done
+        return 1
+    else
+        echo "Build process completed successfully."
+        return 0
+    fi
 }
 
-# ==========================================
-# Main Execution Block
-# ==========================================
 main() {
     if ! parse_args "$@"; then
-        exit 1
+        return 1
     fi
 
     if ! command -v kustomize &> /dev/null; then
