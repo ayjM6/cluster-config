@@ -19,7 +19,7 @@ set -euo pipefail
 prog="$(basename "$0")"
 
 usage() {
-  cat <<EOF
+	cat <<EOF
 Usage: $prog <base-build-dir> <head-build-dir> <output.md>
 
 Compare two directories of rendered overlays produced by
@@ -41,17 +41,17 @@ EOF
 
 # Show full help on request, before any argument validation.
 case "${1:-}" in
-  -h | --help)
-    usage
-    exit 0
-    ;;
+-h | --help)
+	usage
+	exit 0
+	;;
 esac
 
 if [ "$#" -ne 3 ]; then
-  echo "$prog: error: expected 3 arguments, got $#." >&2
-  echo >&2
-  usage >&2
-  exit 2
+	echo "$prog: error: expected 3 arguments, got $#." >&2
+	echo >&2
+	usage >&2
+	exit 2
 fi
 
 BASE_DIR="$1"
@@ -67,95 +67,110 @@ trap 'rm -rf "$workdir"' EXIT
 # List the overlays present in a build directory (those with a status file),
 # as relative paths mirroring the original overlay layout.
 list_built() {
-  local dir="$1"
-  [ -d "$dir" ] || return 0
-  ( cd "$dir" \
-      && find . -type f -name status -printf '%h\n' 2>/dev/null \
-      | sed 's#^\./##' \
-      | sort )
+	local dir="$1"
+	[ -d "$dir" ] || return 0
+	(cd "$dir" &&
+		find . -type f -name status -printf '%h\n' 2>/dev/null |
+		sed 's#^\./##' |
+			sort)
 }
 
 # Truncate a file to MAX_DIFF_LINES, appending a note if it was clipped.
 truncate_block() {
-  local total; total="$(wc -l <"$1")"
-  if [ "$total" -gt "$MAX_DIFF_LINES" ]; then
-    head -n "$MAX_DIFF_LINES" "$1"
-    printf '\n... truncated (%s lines total) — render locally with `kustomize build`.\n' "$total"
-  else
-    cat "$1"
-  fi
+	local total
+	total="$(wc -l <"$1")"
+	if [ "$total" -gt "$MAX_DIFF_LINES" ]; then
+		head -n "$MAX_DIFF_LINES" "$1"
+		printf '\n... truncated (%s lines total) — render locally with `kustomize build`.\n' "$total"
+	else
+		cat "$1"
+	fi
 }
 
 # Build the union of overlay paths present in either build directory.
-mapfile -t overlays < <( { list_built "$BASE_DIR"; list_built "$HEAD_DIR"; } | sort -u )
+mapfile -t overlays < <({
+	list_built "$BASE_DIR"
+	list_built "$HEAD_DIR"
+} | sort -u)
 
-changed=()        # markdown blocks, one per changed overlay
-summary_rows=()   # rows for the summary table
+changed=()      # markdown blocks, one per changed overlay
+summary_rows=() # rows for the summary table
 
 for overlay in "${overlays[@]}"; do
-  base_present=false; head_present=false
-  [ -f "$BASE_DIR/$overlay/status" ] && base_present=true
-  [ -f "$HEAD_DIR/$overlay/status" ] && head_present=true
+	base_present=false
+	head_present=false
+	[ -f "$BASE_DIR/$overlay/status" ] && base_present=true
+	[ -f "$HEAD_DIR/$overlay/status" ] && head_present=true
 
-  head_rc=0
-  $head_present && head_rc="$(cat "$HEAD_DIR/$overlay/status")"
+	head_rc=0
+	$head_present && head_rc="$(cat "$HEAD_DIR/$overlay/status")"
 
-  # A build error on the PR head is always worth reporting, loudly.
-  if $head_present && [ "$head_rc" -ne 0 ]; then
-    summary_rows+=("| \`$overlay\` | 🛑 build failed |")
-    changed+=("$(printf '<details open><summary>🛑 <code>%s</code> — kustomize build failed</summary>\n\n```\n%s\n```\n\n</details>' \
-      "$overlay" "$(cat "$HEAD_DIR/$overlay/stderr")")")
-    continue
-  fi
+	# A build error on the PR head is always worth reporting, loudly.
+	if $head_present && [ "$head_rc" -ne 0 ]; then
+		summary_rows+=("| \`$overlay\` | 🛑 build failed |")
+		changed+=("$(printf '<details open><summary>🛑 <code>%s</code> — kustomize build failed</summary>\n\n```\n%s\n```\n\n</details>' \
+			"$overlay" "$(cat "$HEAD_DIR/$overlay/stderr")")")
+		continue
+	fi
 
-  body_file="$workdir/body.txt"
-  if ! $base_present && $head_present; then
-    icon="🟢"; label="new overlay"; fence="yaml"
-    truncate_block "$HEAD_DIR/$overlay/manifest.yaml" >"$body_file"
-  elif $base_present && ! $head_present; then
-    icon="🔴"; label="overlay removed"; fence="yaml"
-    truncate_block "$BASE_DIR/$overlay/manifest.yaml" >"$body_file"
-  else
-    # Both present (base build failures are surfaced inside the diff via dyff/diff).
-    base_manifest="$BASE_DIR/$overlay/manifest.yaml"
-    head_manifest="$HEAD_DIR/$overlay/manifest.yaml"
-    dyff_rc=0
-    dyff between --set-exit-code --omit-header --output github \
-      "$base_manifest" "$head_manifest" >"$workdir/raw.txt" 2>"$workdir/dyff.err" || dyff_rc=$?
-    case "$dyff_rc" in
-      0) continue ;;                  # semantically identical — nothing to report
-      1) icon="🟡"; label="modified"; fence="diff" ;;
-      *)                              # dyff couldn't compare — fall back to textual diff
-        icon="🟡"; label="modified (textual diff — dyff unavailable)"; fence="diff"
-        diff -u "$base_manifest" "$head_manifest" \
-          --label "a/$overlay" --label "b/$overlay" >"$workdir/raw.txt" || true
-        ;;
-    esac
-    truncate_block "$workdir/raw.txt" >"$body_file"
-  fi
+	body_file="$workdir/body.txt"
+	if ! $base_present && $head_present; then
+		icon="🟢"
+		label="new overlay"
+		fence="yaml"
+		truncate_block "$HEAD_DIR/$overlay/manifest.yaml" >"$body_file"
+	elif $base_present && ! $head_present; then
+		icon="🔴"
+		label="overlay removed"
+		fence="yaml"
+		truncate_block "$BASE_DIR/$overlay/manifest.yaml" >"$body_file"
+	else
+		# Both present (base build failures are surfaced inside the diff via dyff/diff).
+		base_manifest="$BASE_DIR/$overlay/manifest.yaml"
+		head_manifest="$HEAD_DIR/$overlay/manifest.yaml"
+		dyff_rc=0
+		dyff between --set-exit-code --omit-header --output github \
+			"$base_manifest" "$head_manifest" >"$workdir/raw.txt" 2>"$workdir/dyff.err" || dyff_rc=$?
+		case "$dyff_rc" in
+		0) continue ;; # semantically identical — nothing to report
+		1)
+			icon="🟡"
+			label="modified"
+			fence="diff"
+			;;
+		*) # dyff couldn't compare — fall back to textual diff
+			icon="🟡"
+			label="modified (textual diff — dyff unavailable)"
+			fence="diff"
+			diff -u "$base_manifest" "$head_manifest" \
+				--label "a/$overlay" --label "b/$overlay" >"$workdir/raw.txt" || true
+			;;
+		esac
+		truncate_block "$workdir/raw.txt" >"$body_file"
+	fi
 
-  summary_rows+=("| \`$overlay\` | $icon $label |")
-  changed+=("$(printf '<details><summary>%s <code>%s</code> — %s</summary>\n\n```%s\n%s\n```\n\n</details>' \
-    "$icon" "$overlay" "$label" "$fence" "$(cat "$body_file")")")
+	summary_rows+=("| \`$overlay\` | $icon $label |")
+	changed+=("$(printf '<details><summary>%s <code>%s</code> — %s</summary>\n\n```%s\n%s\n```\n\n</details>' \
+		"$icon" "$overlay" "$label" "$fence" "$(cat "$body_file")")")
 done
 
 # Assemble the report.
 {
-  echo '<!-- kustomize-overlay-diff -->'
-  echo '## 🧬 Kustomize overlay diff'
-  echo
-  if [ "${#changed[@]}" -eq 0 ]; then
-    echo '✅ No rendered changes in any kustomize overlay.'
-    echo
-    printf '_Compared %d overlay(s) against the base branch with dyff._\n' "${#overlays[@]}"
-  else
-    printf '%d of %d overlay(s) changed:\n\n' "${#changed[@]}" "${#overlays[@]}"
-    echo '| Overlay | Status |'
-    echo '| --- | --- |'
-    printf '%s\n' "${summary_rows[@]}"
-    echo
-    printf '%s\n\n' "${changed[@]}"
-  fi
+	echo '<!-- kustomize-overlay-diff -->'
+	echo '## 🧬 Kustomize overlay diff'
+	echo
+	if [ "${#changed[@]}" -eq 0 ]; then
+		echo '✅ No rendered changes in any kustomize overlay.'
+		echo
+		printf '_Compared %d overlay(s) against the base branch with dyff._\n' "${#overlays[@]}"
+	else
+		printf '%d of %d overlay(s) changed:\n\n' "${#changed[@]}" "${#overlays[@]}"
+		echo '| Overlay | Status |'
+		echo '| --- | --- |'
+		printf '%s\n' "${summary_rows[@]}"
+		echo
+		printf '%s\n\n' "${changed[@]}"
+	fi
 } >"$OUT"
 
 echo "Wrote report for ${#overlays[@]} overlay(s), ${#changed[@]} changed, to $OUT"

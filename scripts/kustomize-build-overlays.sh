@@ -36,7 +36,7 @@ prog="$(basename "$0")"
 # Print usage. Writes to stdout for an explicit --help, stderr otherwise so it
 # doesn't pollute a piped result; the caller chooses the exit code.
 usage() {
-  cat <<EOF
+	cat <<EOF
 Usage: $prog [--revision <revision>] [--output-dir <dir>]
 
 Render every kustomize overlay of a single revision into an output directory.
@@ -62,69 +62,75 @@ revision=""
 output_dir=""
 output_set=false
 while [ "$#" -gt 0 ]; do
-  case "$1" in
-    -h | --help)
-      usage
-      exit 0
-      ;;
-    --revision)
-      [ "$#" -ge 2 ] || { echo "$prog: error: --revision requires a value." >&2; exit 2; }
-      revision="$2"
-      shift 2
-      ;;
-    --revision=*)
-      revision="${1#--revision=}"
-      shift
-      ;;
-    -o | --output-dir)
-      [ "$#" -ge 2 ] || { echo "$prog: error: --output-dir requires a value." >&2; exit 2; }
-      output_dir="$2"
-      output_set=true
-      shift 2
-      ;;
-    --output-dir=*)
-      output_dir="${1#--output-dir=}"
-      output_set=true
-      shift
-      ;;
-    --)
-      shift
-      break
-      ;;
-    -*)
-      echo "$prog: error: unknown option '$1'." >&2
-      echo >&2
-      usage >&2
-      exit 2
-      ;;
-    *)
-      echo "$prog: error: unexpected argument '$1' (set the output directory with --output-dir)." >&2
-      echo >&2
-      usage >&2
-      exit 2
-      ;;
-  esac
+	case "$1" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	--revision)
+		[ "$#" -ge 2 ] || {
+			echo "$prog: error: --revision requires a value." >&2
+			exit 2
+		}
+		revision="$2"
+		shift 2
+		;;
+	--revision=*)
+		revision="${1#--revision=}"
+		shift
+		;;
+	-o | --output-dir)
+		[ "$#" -ge 2 ] || {
+			echo "$prog: error: --output-dir requires a value." >&2
+			exit 2
+		}
+		output_dir="$2"
+		output_set=true
+		shift 2
+		;;
+	--output-dir=*)
+		output_dir="${1#--output-dir=}"
+		output_set=true
+		shift
+		;;
+	--)
+		shift
+		break
+		;;
+	-*)
+		echo "$prog: error: unknown option '$1'." >&2
+		echo >&2
+		usage >&2
+		exit 2
+		;;
+	*)
+		echo "$prog: error: unexpected argument '$1' (set the output directory with --output-dir)." >&2
+		echo >&2
+		usage >&2
+		exit 2
+		;;
+	esac
 done
 
 if [ "$#" -gt 0 ]; then
-  echo "$prog: error: unexpected argument '$1' (set the output directory with --output-dir)." >&2
-  echo >&2
-  usage >&2
-  exit 2
+	echo "$prog: error: unexpected argument '$1' (set the output directory with --output-dir)." >&2
+	echo >&2
+	usage >&2
+	exit 2
 fi
 
 if $output_set && [ -z "$output_dir" ]; then
-  echo "$prog: error: --output-dir requires a non-empty value." >&2
-  exit 2
+	echo "$prog: error: --output-dir requires a non-empty value." >&2
+	exit 2
 fi
 
 # Output directory: explicit --output-dir if given, otherwise revision-aware default.
 if $output_set; then
-  OUT="$output_dir"
+	OUT="$output_dir"
 elif [ -n "$revision" ]; then
-  OUT="$repo_dir/target/manifests/$revision"
+	OUT="$repo_dir/target/manifests/$revision"
 else
-  OUT="$repo_dir/target/manifests/HEAD"
+	OUT="$repo_dir/target/manifests/HEAD"
 fi
 
 # When building a specific revision, render it from a throwaway detached worktree
@@ -132,35 +138,35 @@ fi
 tmp_parent=""
 worktree_dir=""
 cleanup() {
-  [ -n "$worktree_dir" ] && git -C "$repo_dir" worktree remove --force "$worktree_dir" 2>/dev/null || true
-  [ -n "$tmp_parent" ] && rm -rf "$tmp_parent"
+	[ -n "$worktree_dir" ] && git -C "$repo_dir" worktree remove --force "$worktree_dir" 2>/dev/null || true
+	[ -n "$tmp_parent" ] && rm -rf "$tmp_parent"
 }
 
 if [ -n "$revision" ]; then
-  if ! git -C "$repo_dir" rev-parse --verify --quiet "${revision}^{commit}" >/dev/null; then
-    echo "$prog: error: revision '$revision' not found." >&2
-    exit 2
-  fi
-  trap cleanup EXIT
-  tmp_parent="$(mktemp -d)"
-  worktree_dir="$tmp_parent/worktree"
-  git -C "$repo_dir" worktree add --detach "$worktree_dir" "$revision" >/dev/null
-  SRC="$worktree_dir"
-  src_label="revision $revision"
+	if ! git -C "$repo_dir" rev-parse --verify --quiet "${revision}^{commit}" >/dev/null; then
+		echo "$prog: error: revision '$revision' not found." >&2
+		exit 2
+	fi
+	trap cleanup EXIT
+	tmp_parent="$(mktemp -d)"
+	worktree_dir="$tmp_parent/worktree"
+	git -C "$repo_dir" worktree add --detach "$worktree_dir" "$revision" >/dev/null
+	SRC="$worktree_dir"
+	src_label="revision $revision"
 else
-  SRC="$repo_dir"
-  src_label="working tree $SRC"
+	SRC="$repo_dir"
+	src_label="working tree $SRC"
 fi
 
 # List overlay directories (relative paths) found under a tree root.
 list_overlays() {
-  local root="$1"
-  [ -d "$root" ] || return 0
-  ( cd "$root" \
-      && find . -type d -regextype posix-extended -regex '.*/overlays/[^/]+' \
-           -exec test -f '{}/kustomization.yaml' ';' -print 2>/dev/null \
-      | sed 's#^\./##' \
-      | sort )
+	local root="$1"
+	[ -d "$root" ] || return 0
+	(cd "$root" &&
+		find . -type d -regextype posix-extended -regex '.*/overlays/[^/]+' \
+			-exec test -f '{}/kustomization.yaml' ';' -print 2>/dev/null |
+		sed 's#^\./##' |
+			sort)
 }
 
 # Start from a clean slate so a removed overlay doesn't linger from a prior run.
@@ -170,14 +176,14 @@ mkdir -p "$OUT"
 count=0
 failed=0
 while IFS= read -r overlay; do
-  [ -n "$overlay" ] || continue
-  dest="$OUT/$overlay"
-  mkdir -p "$dest"
-  rc=0
-  kustomize build "$SRC/$overlay" >"$dest/manifest.yaml" 2>"$dest/stderr" || rc=$?
-  printf '%s\n' "$rc" >"$dest/status"
-  count=$((count + 1))
-  [ "$rc" -ne 0 ] && failed=$((failed + 1))
+	[ -n "$overlay" ] || continue
+	dest="$OUT/$overlay"
+	mkdir -p "$dest"
+	rc=0
+	kustomize build "$SRC/$overlay" >"$dest/manifest.yaml" 2>"$dest/stderr" || rc=$?
+	printf '%s\n' "$rc" >"$dest/status"
+	count=$((count + 1))
+	[ "$rc" -ne 0 ] && failed=$((failed + 1))
 done < <(list_overlays "$SRC")
 
 echo "Built $count overlay(s) from $src_label into $OUT ($failed failed)."
