@@ -15,7 +15,7 @@ parse_args() {
 	while [[ "$#" -gt 0 ]]; do
 		case $1 in
 		--ref)
-			if [[ -n "${2:-}" && "$2" != -* ]]; then
+			if [[ -n "$2" && "$2" != -* ]]; then
 				GIT_REF="$2"
 				shift 2
 			else

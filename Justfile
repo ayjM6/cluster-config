@@ -1,10 +1,15 @@
 set shell := ["bash", "-c"]
 
+CI := env("CI", "")
+DEFAULT_DYFF_OUTPUT_ARG := if CI == "true" { "github" } else { "human" }
+
 build-all:
 	./scripts/kustomize-build.sh apps/*/*/overlays/*
 
-kustomize-diff ref:
+kustomize-diff ref output=DEFAULT_DYFF_OUTPUT_ARG:
 	./scripts/kustomize-build.sh -t target/manifests apps/*/*/overlays/*
-	./scripts/kustomize-build.sh -t target/manifests-target apps/*/*/overlays/* --ref {{ref}}
-	./scripts/dyff-recursive.sh -g target/manifests target/manifests-target
+	./scripts/kustomize-build.sh -t target/manifests-target apps/*/*/overlays/* --ref {{ ref }}
+	./scripts/dyff-recursive.sh target/manifests-target  target/manifests -o {{ output }}
 
+clean:
+	rm -rf target/*
