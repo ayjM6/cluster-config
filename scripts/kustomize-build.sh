@@ -10,24 +10,51 @@ VERBOSE=0
 BUILD_DIRS=()
 KUSTOMIZE_ARGS=()
 
+usage() {
+	cat << EOF
+Usage: $(basename "$0") [OPTIONS] [--] [DIRECTORIES...]
+
+Builds Kustomize manifests for specified directories and outputs them structurally into a target directory.
+
+Options:
+  -b, --base-dir DIR    Base directory that must contain all build directories (Default: ".")
+  -t, --target-dir DIR  Directory where generated manifests will be saved (Default: "target/manifests")
+  -s, --skip-missing    Skip build directories that do not exist instead of throwing an error
+  -v, --verbose         Enable verbose logging output
+  -h, --help            Display this help text and exit
+  * Any other flags (e.g., --enable-helm) are passed straight to 'kustomize build'.
+
+Arguments:
+  --                    Explicitly separates options from positional directory arguments.
+  DIRECTORIES           One or more directories to build. Defaults to "." if omitted.
+                        Also accepts directory paths passed via stdin.
+
+Examples:
+  $(basename "$0") -b . -t ./dist environments/staging environments/production
+  echo "environments/dev" | $(basename "$0") -v
+EOF
+}
+
 parse_args() {
 	while [[ "$#" -gt 0 ]]; do
 		case $1 in
 		-b | --base-dir)
-			if [[ -n "$2" && "$2" != -* ]]; then
+			if [[ "$#" -gt 1 && "$2" != -* ]]; then
 				BASE_DIR="$2"
 				shift 2
 			else
-				echo "Error: Argument for $1 is missing." >&2
+				echo -e "Error: Argument for $1 is missing.\n" >&2
+				usage >&2
 				return 1
 			fi
 			;;
 		-t | --target-dir)
-			if [[ -n "$2" && "$2" != -* ]]; then
+			if [[ "$#" -gt 1 && "$2" != -* ]]; then
 				TARGET_DIR="$2"
 				shift 2
 			else
-				echo "Error: Argument for $1 is missing." >&2
+				echo -e "Error: Argument for $1 is missing.\n" >&2
+				usage >&2
 				return 1
 			fi
 			;;
@@ -40,7 +67,7 @@ parse_args() {
 			shift
 			;;
 		-h | --help)
-			echo "Usage: $0 [-t <out-dir>] [--chroot <dir>] [kustomize_flags...] [--] [directories...]"
+			usage
 			exit 0
 			;;
 		--)
