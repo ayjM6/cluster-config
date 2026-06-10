@@ -19,3 +19,5 @@ dyff ref="origin/main" output=DEFAULT_DYFF_OUTPUT_ARG:
 
 clean:
 	rm -rf target/*;
+
+test:
