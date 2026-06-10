@@ -2,11 +2,10 @@
 
 set -euo pipefail
 
-ORIGINAL_PWD="$PWD"
 TARGET_DIR="target/manifests"
-WORKTREE_ROOT_DIR="target/worktrees"
-GIT_REF=""
+BASE_DIR="."
 SKIP_MISSING=0
+VERBOSE=0
 
 BUILD_DIRS=()
 KUSTOMIZE_ARGS=()
@@ -14,9 +13,9 @@ KUSTOMIZE_ARGS=()
 parse_args() {
 	while [[ "$#" -gt 0 ]]; do
 		case $1 in
-		--ref)
+		-b | --base-dir)
 			if [[ -n "$2" && "$2" != -* ]]; then
-				GIT_REF="$2"
+				BASE_DIR="$2"
 				shift 2
 			else
 				echo "Error: Argument for $1 is missing." >&2
@@ -32,12 +31,16 @@ parse_args() {
 				return 1
 			fi
 			;;
-		--skip-missing)
+		-s | --skip-missing)
 			SKIP_MISSING=1
 			shift
 			;;
+		-v | --verbose)
+			VERBOSE=1
+			shift
+			;;
 		-h | --help)
-			echo "Usage: $0 [-o <out-dir>] [-k <arg>] [directories...]"
+			echo "Usage: $0 [-t <out-dir>] [--chroot <dir>] [kustomize_flags...] [--] [directories...]"
 			exit 0
 			;;
 		--)
@@ -77,59 +80,58 @@ parse_args() {
 		BUILD_DIRS=(".")
 	fi
 
+	readonly ABS_BASE_DIR="$(realpath "$BASE_DIR")"
+
 	return 0
 }
 
 kustomize_build() {
-	local kustomize_dir="$1"
-	local target_dir="$2"
+	local build_dir="$1"
+	local abs_build_dir=$(realpath "$build_dir")
 
-	local abs_kustomize_dir=$(realpath "$kustomize_dir")
-	local abs_pwd=$(realpath "$PWD")
-
-	# Ensure that the kustomize directory is a subdirectory of the current directory
-	if [[ "$abs_kustomize_dir" == "$abs_pwd" || "$abs_kustomize_dir" != "$abs_pwd/"* ]]; then
-		echo "Error: Directory '$kustomize_dir' is not contained within the working directory ($abs_pwd)." >&2
+	# Ensure that the kustomize directory is a subdirectory of the chroot/base directory
+	if [[ "$abs_build_dir" == "$ABS_BASE_DIR" || "$abs_build_dir" != "$ABS_BASE_DIR/"* ]]; then
+		echo "Error: Directory '$build_dir' is not contained within the base directory ($ABS_BASE_DIR)." >&2
 		return 1
 	fi
 
-	# Get the relative path to the kustomize dir from the working dir
-	local rel_kustomize_dir="${abs_kustomize_dir#$abs_pwd/}"
-	local out_dir="$target_dir/$rel_kustomize_dir"
+	# Get the relative path to the kustomize dir from the base dir
+	local rel_kustomize_dir="${abs_build_dir#$ABS_BASE_DIR/}"
+	local out_dir="$TARGET_DIR/$rel_kustomize_dir"
 	local manifest_file="$out_dir/manifests.yaml"
 	local stderr_file="$out_dir/stderr"
 	mkdir -p "$out_dir"
 
-	if [[ "$SKIP_MISSING" -eq 1  && ! -d "$kustomize_dir" ]]; then
-		echo "[ ➖ ] $kustomize_dir"
+	if [[ "$SKIP_MISSING" -eq 1  && ! -d "$build_dir" ]]; then
+		echo "[ ➖ ] $build_dir"
 		return 0
-	elif kustomize build "${KUSTOMIZE_ARGS[@]}" "$kustomize_dir" -o "$manifest_file" 2>"$stderr_file"; then
-		echo "[ ✅ ] $kustomize_dir"
+	elif kustomize build "${KUSTOMIZE_ARGS[@]}" "$build_dir" -o "$manifest_file" 2>"$stderr_file"; then
+		echo "[ ✅ ] $build_dir"
 		return 0
 	else
-		echo "[ ❌ ] $kustomize_dir"
+		echo "[ ❌ ] $build_dir"
 		cat "$stderr_file" >&2
 		return 1
 	fi
 }
 
 kustomize_build_all() {
-	local out_dir="$1"
-	local abs_pwd=$(realpath "$PWD")
-
 	echo "---------------------------  Kustomize Build ---------------------------"
-	echo "Output Directory : ${TARGET_DIR}"
-	if [[ ${#KUSTOMIZE_ARGS[@]} -gt 0 ]]; then
-		echo "Kustomize Args   : ${KUSTOMIZE_ARGS[@]}"
+	if [ $VERBOSE -gt 0 ]; then
+		echo "Base Directory   : ${BASE_DIR}"
+		echo "Target Directory : ${TARGET_DIR}"
+		if [[ ${#KUSTOMIZE_ARGS[@]} -gt 0 ]]; then
+			echo "Kustomize Args   : ${KUSTOMIZE_ARGS[@]}"
+		fi
+		echo "------------------------------------------------------------------------"
 	fi
-	echo "------------------------------------------------------------------------"
 
 	local build_failed=0
 	local failed_dirs=()
-	for kustomize_dir in "${BUILD_DIRS[@]}"; do
-		if ! kustomize_build "$kustomize_dir" "$out_dir"; then
+	for build_dir in "${BUILD_DIRS[@]}"; do
+		if ! kustomize_build "$build_dir"; then
 			build_failed=1
-			failed_dirs+=("$kustomize_dir")
+			failed_dirs+=("$build_dir")
 		fi
 	done
 	echo "------------------------------------------------------------------------"
@@ -147,63 +149,13 @@ kustomize_build_all() {
 	fi
 }
 
-cleanup() {
-	# Step out of the worktree back to the original directory before deleting
-	cd "$ORIGINAL_PWD" || true
-	if [[ -n "$WORKTREE_DIR" && -d "$WORKTREE_DIR" ]]; then
-		git worktree remove --force "$WORKTREE_DIR" >/dev/null 2>&1 || rm -rf "$WORKTREE_DIR"
-	fi
-}
-
-setup_worktree() {
-	# make sure we're running at the root of the git repository if working with worktrees
-	if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-		echo "Error: Not inside a Git repository." >&2
-		exit 1
-	fi
-
-	if [[ -n "$(git rev-parse --show-cdup)" ]]; then
-		echo "Error: This script must be run from the root of the Git repository." >&2
-		exit 1
-	fi
-
-	trap cleanup EXIT
-
-	local safe_ref=$(echo "$GIT_REF" | tr '/\\' '_')
-	WORKTREE_DIR="$ORIGINAL_PWD/$WORKTREE_ROOT_DIR/$safe_ref"
-
-	if ! git worktree add --detach "$WORKTREE_DIR" "$GIT_REF" >/dev/null 2>&1; then
-		echo "Error: Failed to create git worktree for ref '$GIT_REF'." >&2
-		return 1
-	fi
-
-	cd "$WORKTREE_DIR"
-}
-
 main() {
 	if ! parse_args "$@"; then
 		return 1
 	fi
 
-	if ! command -v kustomize &>/dev/null; then
-		echo "Error: kustomize is not installed or not in your PATH." >&2
-		exit 1
-	fi
-
-	if ! command -v realpath &>/dev/null; then
-		echo "Error: realpath command is required but not found in your PATH." >&2
-		exit 1
-	fi
-
-	# set abs path for target dir, before we potentially switch dirs when
-	# setting up the worktree
 	mkdir -p "$TARGET_DIR"
-	abs_target_dir="$(realpath "$TARGET_DIR")"
-
-	if [[ -n "$GIT_REF" ]]; then
-		setup_worktree || exit 1
-	fi
-	kustomize_build_all "$abs_target_dir"
+	kustomize_build_all
 }
 
 main "$@"
