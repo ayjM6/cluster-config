@@ -106,7 +106,6 @@ kustomize_build_all() {
 	local abs_pwd=$(realpath "$PWD")
 
 	echo "--- Starting Kustomize Build ---"
-	echo "Working Directory: $abs_pwd"
 	echo "Output Directory : $out_dir"
 	echo "Kustomize Args   : ${KUSTOMIZE_ARGS[*]}"
 	echo "Target Dirs      : ${BUILD_DIRS[*]}"
@@ -124,13 +123,13 @@ kustomize_build_all() {
 
 	# Check if any builds failed
 	if [[ $build_failed -ne 0 ]]; then
-		echo "Build completed with errors in the following directories:" >&2
+		echo "BUILD FAILED with errors in the following directories:" >&2
 		for dir in "${failed_dirs[@]}"; do
 			echo "  - $dir" >&2
 		done
 		return 1
 	else
-		echo "Build process completed successfully."
+		echo "BUILD SUCCESSFUL"
 		return 0
 	fi
 }
