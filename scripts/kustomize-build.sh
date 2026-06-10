@@ -32,15 +32,6 @@ parse_args() {
 				return 1
 			fi
 			;;
-		-k | --kustomize-arg)
-			if [[ -n "$2" ]]; then
-				KUSTOMIZE_ARGS+=("$2")
-				shift 2
-			else
-				echo "Error: Argument for $1 is missing." >&2
-				return 1
-			fi
-			;;
 		--skip-missing)
 			SKIP_MISSING=1
 			shift
@@ -58,8 +49,12 @@ parse_args() {
 			break
 			;;
 		-*)
-			echo "Error: Unknown parameter passed: $1" >&2
-			return 1
+			KUSTOMIZE_ARGS+=("$1")
+			if [[ "$#" -gt 1 && "$2" != -* ]]; then
+				KUSTOMIZE_ARGS+=("$2")
+				shift
+			fi
+			shift
 			;;
 		*)
 			BUILD_DIRS+=("$1")
