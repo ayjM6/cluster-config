@@ -6,6 +6,7 @@ ORIGINAL_PWD="$PWD"
 TARGET_DIR="target/manifests"
 WORKTREE_ROOT_DIR="target/worktrees"
 GIT_REF=""
+SKIP_MISSING=0
 
 BUILD_DIRS=()
 KUSTOMIZE_ARGS=()
@@ -39,6 +40,10 @@ parse_args() {
 				echo "Error: Argument for $1 is missing." >&2
 				return 1
 			fi
+			;;
+		--skip-missing)
+			SKIP_MISSING=1
+			shift
 			;;
 		-h | --help)
 			echo "Usage: $0 [-o <out-dir>] [-k <arg>] [directories...]"
@@ -100,7 +105,10 @@ kustomize_build() {
 	local stderr_file="$out_dir/stderr"
 	mkdir -p "$out_dir"
 
-	if kustomize build "${KUSTOMIZE_ARGS[@]}" "$kustomize_dir" -o "$manifest_file" 2>"$stderr_file"; then
+	if [[ "$SKIP_MISSING" -eq 1  && ! -d "$kustomize_dir" ]]; then
+		echo "[ ➖ ] $kustomize_dir"
+		return 0
+	elif kustomize build "${KUSTOMIZE_ARGS[@]}" "$kustomize_dir" -o "$manifest_file" 2>"$stderr_file"; then
 		echo "[ ✅ ] $kustomize_dir"
 		return 0
 	else
@@ -114,11 +122,12 @@ kustomize_build_all() {
 	local out_dir="$1"
 	local abs_pwd=$(realpath "$PWD")
 
-	echo "--- Starting Kustomize Build ---"
-	echo "Output Directory : $out_dir"
-	echo "Kustomize Args   : ${KUSTOMIZE_ARGS[*]}"
-	echo "Target Dirs      : ${BUILD_DIRS[*]}"
-	echo "--------------------------------"
+	echo "---------------------------  Kustomize Build ---------------------------"
+	echo "Output Directory : ${TARGET_DIR}"
+	if [[ ${#KUSTOMIZE_ARGS[@]} -gt 0 ]]; then
+		echo "Kustomize Args   : ${KUSTOMIZE_ARGS[@]}"
+	fi
+	echo "------------------------------------------------------------------------"
 
 	local build_failed=0
 	local failed_dirs=()
@@ -128,7 +137,7 @@ kustomize_build_all() {
 			failed_dirs+=("$kustomize_dir")
 		fi
 	done
-	echo "--------------------------------"
+	echo "------------------------------------------------------------------------"
 
 	# Check if any builds failed
 	if [[ $build_failed -ne 0 ]]; then
