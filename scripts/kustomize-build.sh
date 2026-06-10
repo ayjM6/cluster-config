@@ -63,6 +63,15 @@ parse_args() {
 		esac
 	done
 
+	# Handle args piped via stdin
+	if [[ ! -t 0 ]]; then
+		while IFS= read -r line || [[ -n "$line" ]]; do
+			if [[ -n "$line" ]]; then
+				BUILD_DIRS+=("$line")
+			fi
+		done
+	fi
+
 	# Default to build current directory
 	if [[ ${#BUILD_DIRS[@]} -eq 0 ]]; then
 		BUILD_DIRS=(".")

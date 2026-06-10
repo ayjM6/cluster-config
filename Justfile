@@ -2,20 +2,36 @@ set shell := ["bash", "-uc"]
 
 # generic defaults
 CI := env("CI", "")
+GIT_REF := "origin/HEAD"
 DEFAULT_DYFF_OUTPUT_ARG := if CI == "true" { "github" } else { "human" }
 
 # project specific defaults
-KUSTOMIZE_DIRS := "apps/*/*/overlays/*"
+KUST_DIRS := "apps/*/*/overlays/* bootstrap/*/overlays/*"
+KUST_ARGS := ""
 
-build-all:
-	@rm -rf target/manifests
-	scripts/kustomize-build.sh -t target/manifests {{ KUSTOMIZE_DIRS }}
+# by default, builds any overlays that have changed compared to origin/HEAD
+# otherwise builds the given dir
+build dir="":
+	#!/usr/bin/env bash
+	if [[ -z "{{ dir }}" ]]; then
+		scripts/get-changed-kustomization.sh --ref "{{ GIT_REF }}" {{ KUST_DIRS }} | xargs -I {} bash -c 'echo "---"; kustomize build {{ KUST_ARGS }} {}'
+	else
+		kustomize build {{KUST_ARGS}} "{{ dir }}"
+	fi
 
-dyff ref="origin/main" output=DEFAULT_DYFF_OUTPUT_ARG:
-	@rm -rf target/manifests target/manifests-target
-	scripts/kustomize-build.sh -t target/manifests {{ KUSTOMIZE_DIRS }}
-	scripts/kustomize-build.sh -t target/manifests-target {{ KUSTOMIZE_DIRS }} --ref {{ ref }}
-	scripts/dyff-recursive.sh target/manifests-target  target/manifests -o {{ output }}
+dyff ref=GIT_REF output=DEFAULT_DYFF_OUTPUT_ARG:
+	#!/usr/bin/env bash
+
+	# should we just make these /from & /to?
+	target_to=target/manifests/HEAD
+	target_from="target/manifests/{{ ref }}"
+
+	rm -rf "$target_from" "$target_to"
+
+	kust_dirs=$(scripts/get-changed-kustomization.sh --ref {{ ref }} {{ KUST_DIRS }})
+	scripts/kustomize-build.sh -t "$target_to" <<< "$kust_dirs"
+	scripts/kustomize-build.sh -t "$target_from" --ref {{ ref }} <<< "$kust_dirs"
+	scripts/dyff-recursive.sh "$target_from" "$target_to" -o "{{ output }}"
 
 clean:
 	rm -rf target/*;

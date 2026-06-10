@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: bookinfo
+  name: bookinfox
   labels:
     istio-discovery: enabled
     istio-injection: enabled
