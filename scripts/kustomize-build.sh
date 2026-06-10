@@ -103,10 +103,10 @@ kustomize_build() {
 	mkdir -p "$out_dir"
 
 	if kustomize build "${KUSTOMIZE_ARGS[@]}" "$kustomize_dir" -o "$manifest_file" 2>"$stderr_file"; then
-		echo "[ ✓ ] $kustomize_dir"
+		echo "[✅] $kustomize_dir"
 		return 0
 	else
-		echo "[ ✗ ] $kustomize_dir"
+		echo "[ ❌ ] $kustomize_dir"
 		cat "$stderr_file" >&2
 		return 1
 	fi
@@ -154,7 +154,6 @@ cleanup() {
 	fi
 }
 
-# Create a worktree to cheaply build the manifests from the given git ref
 setup_worktree() {
 	# make sure we're running at the root of the git repository if working with worktrees
 	if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
