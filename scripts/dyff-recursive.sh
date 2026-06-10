@@ -4,7 +4,7 @@ set -euo pipefail
 
 #DIR_FROM=""
 #DIR_TO=""
-DYFF_ARGS=(-c on -s -g)
+DYFF_ARGS=(-c on -s -g -b)
 OUTPUT_FORMAT="human"
 OUTPUT_MARKDOWN="false"
 
@@ -94,7 +94,7 @@ compare_dirs() {
 		if [[ "$dyff_rc" != 0 ]]; then
 			if [[ "$OUTPUT_MARKDOWN" == "true" ]]; then
 				echo "<details>"
-				echo "<summary><code>${rel_path}</code></summary>"
+				echo "<summary><h4>$(dirname "$rel_path")</h4></summary>"
 				echo ""
 				echo '```diff'
 				echo "$dyff_out"

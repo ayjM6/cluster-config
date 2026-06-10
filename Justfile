@@ -41,19 +41,26 @@ dyff ref=GIT_REF output=DEFAULT_DYFF_OUTPUT_ARG:
 
 	kust_dirs=($(just --justfile "{{ justfile() }}" changed "{{ ref }}"))
 
+	if [[ "{{ output }}" == git* ]]; then
+		echo '```'
+	fi
+
 	"$build" --skip-missing -t "$abs_target_to" -- "${kust_dirs[@]}"
 
 	# setup the worktree dir and enforce cleanup
 	worktree_dir=$(mktemp -d)
 	trap git worktree remove --force "$worktree_dir" >/dev/null 2>&1 || rm -rf "$worktree_dir" EXIT
-	git worktree add --detach "$worktree_dir" "{{ ref }}"
+	git worktree add --detach "$worktree_dir" "{{ ref }}" >/dev/null
 
 	pushd "$worktree_dir" >/dev/null;
 	"$build" --skip-missing -t "$abs_target_from" -- "${kust_dirs[@]}"
 	popd >/dev/null;
+
+	if [[ "{{ output }}" == git* ]]; then
+		echo '```'
+	fi
+
 	scripts/dyff-recursive.sh "$target_from" "$target_to" -o "{{ output }}"
 
 clean:
 	rm -rf target/*;
-
-test:
