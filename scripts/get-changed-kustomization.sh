@@ -52,7 +52,26 @@ find_changed_kustomizations() {
 		exit 0
 	fi
 
-	for dir in "${target_dirs[@]}"; do
+	declare -A changed_overlays
+
+	# Shortcut some of the processing if any of the direct overlay kustomizations have been changed.
+	# This has the added benefit circumventing the need to process all the globs/overlays in the
+	# target ref as well in order to pick up on deleted overlays.
+	while IFS= read -r file; do
+      [[ -n "$file" ]] || continue
+      changed_overlays["$(dirname "$file")"]=1
+  done < <(git diff --name-only --relative "$GIT_REF" "${target_dirs[@]/%/\/kustomization.yaml}" "${target_dirs[@]/%/\/kustomization.yml}")
+
+	# manually expand any globs given on cmd line
+	shopt -s nullglob
+	expanded_files=( ${target_dirs[@]} )
+	shopt -u nullglob
+
+	for dir in "${expanded_files[@]}"; do
+		if [[ -n "${changed_overlays["$dir"]+isset}" ]]; then
+			continue
+		fi
+
 		if [[ ! -d "$dir" ]]; then
 			echo "Warning: '$dir' is not a directory, or does not exist. Skipping." >&2
 			continue
@@ -67,9 +86,11 @@ find_changed_kustomizations() {
 		# Print the kustomization directory if any files were found to have changed
 		local overlap=$(comm -12 <(echo "$changed_files") <(echo "$kust_files"))
 		if [[ -n "$overlap" ]]; then
-			echo "$dir"
+			changed_overlays["$dir"]=1
 		fi
 	done
+
+	printf "%s\n" "${!changed_overlays[@]}"
 }
 
 main() {

@@ -4,7 +4,7 @@ set -euo pipefail
 
 #DIR_FROM=""
 #DIR_TO=""
-DYFF_ARGS=("-s")
+DYFF_ARGS=(-c on -s -g)
 OUTPUT_FORMAT="human"
 OUTPUT_MARKDOWN="false"
 
@@ -32,6 +32,7 @@ parse_args() {
 				OUTPUT_FORMAT="$2"
 				if [[ "$OUTPUT_FORMAT" == git* ]]; then
 					OUTPUT_MARKDOWN="true"
+					DYFF_ARGS+=(-c off)
 				fi
 				shift 2
 			else
@@ -102,7 +103,7 @@ compare_dirs() {
 				echo "</details>"
 				echo ""
 			else
-				echo -e "\n${COLOR_BLUE}=== $rel_path ===${COLOR_RESET}"
+				echo -e "\n${COLOR_BLUE}=== $(dirname "$rel_path") ===${COLOR_RESET}"
 				echo "$dyff_out"
 			fi
 		fi
