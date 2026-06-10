@@ -1,99 +1,29 @@
-name: Kustomize Overlay Diff
+name: CI Dyff Check
 
-# Render every kustomize overlay on the PR head and on the target branch, then
-# post a comment summarising which overlays' rendered output changed.
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
-
-permissions:
-  contents: read
-  pull-requests: write
-
-concurrency:
-  group: kustomize-diff-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
-
-env:
-  KUSTOMIZE_VERSION: "5.8.0"
-  DYFF_VERSION: "1.10.1"
+    branches: [ main ]
 
 jobs:
-  kustomize-diff:
+  dyff-check:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout PR head
-        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          fetch-depth: 0
+          go-version: '>=1.25'
 
-      - name: Fetch base branch
-        run: git fetch --no-tags origin "${{ github.event.pull_request.base.ref }}"
-
-      - name: Install kustomize
-        run: |
-          set -euo pipefail
-          url="https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${KUSTOMIZE_VERSION}/kustomize_v${KUSTOMIZE_VERSION}_linux_amd64.tar.gz"
-          curl -fsSL "$url" -o /tmp/kustomize.tar.gz
-          tar -xzf /tmp/kustomize.tar.gz -C /usr/local/bin kustomize
-          kustomize version
+      - name: Install Just
+        uses: taiki-e/install-action@just
 
       - name: Install dyff
-        run: |
-          set -euo pipefail
-          url="https://github.com/homeport/dyff/releases/download/v${DYFF_VERSION}/dyff_${DYFF_VERSION}_linux_amd64.tar.gz"
-          curl -fsSL "$url" -o /tmp/dyff.tar.gz
-          tar -xzf /tmp/dyff.tar.gz -C /usr/local/bin dyff
-          dyff version
+        run: go install github.com/homeport/dyff/cmd/dyff@v1.12.0
 
-      # Each call builds a single revision into the main repo's top-level
-      # target/manifests/ directory. The head build renders the current checkout
-      # directly (-> target/manifests/HEAD); the base build renders the target
-      # branch in a throwaway worktree the script manages itself
-      # (-> target/manifests/origin/<base>).
-      - name: Render head overlays (current ref)
-        run: scripts/kustomize-build-overlays.sh
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Render base overlays (target branch)
-        run: scripts/kustomize-build-overlays.sh --revision "origin/${{ github.event.pull_request.base.ref }}"
+      - name: Fetch target branch
+        run: git fetch origin ${{ github.base_ref }}:${{ github.base_ref }} --depth=1
 
-      - name: Diff rendered overlays
-        run: |
-          scripts/kustomize-diff-overlays.sh \
-            "$GITHUB_WORKSPACE/target/manifests/origin/${{ github.event.pull_request.base.ref }}" \
-            "$GITHUB_WORKSPACE/target/manifests/HEAD" \
-            "$GITHUB_WORKSPACE/target/kustomize-diff.md"
-
-      - name: Post diff comment
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const marker = '<!-- kustomize-overlay-diff -->';
-            let body = fs.readFileSync('target/kustomize-diff.md', 'utf8');
-
-            // GitHub rejects comments larger than 65536 characters.
-            const LIMIT = 65000;
-            if (body.length > LIMIT) {
-              body = body.slice(0, LIMIT) +
-                '\n\n> ⚠️ Report truncated — too large to post in full. ' +
-                'Render overlays locally with `kustomize build` to see everything.';
-            }
-
-            const { owner, repo } = context.repo;
-            const issue_number = context.payload.pull_request.number;
-
-            const { data: comments } = await github.rest.issues.listComments({
-              owner, repo, issue_number, per_page: 100,
-            });
-            const existing = comments.find(c => c.body && c.body.includes(marker));
-
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner, repo, comment_id: existing.id, body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner, repo, issue_number, body,
-              });
-            }
+      - name: Run Dyff Recipe
+        run: just dyff "origin/${{ github.base_ref }}"
