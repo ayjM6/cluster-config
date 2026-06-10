@@ -1,0 +1,31 @@
+name: CI Dyff Check
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  dyff-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '>=1.25'
+
+      - name: Install Just
+        uses: taiki-e/install-action@just
+
+      - name: Install dyff
+        run: go install github.com/homeport/dyff/cmd/dyff@v1.12.0
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Fetch target branch
+        run: git fetch origin ${{ github.base_ref }}:${{ github.base_ref }} --depth=1
+
+      - name: Run Dyff Recipe
+        run: |
+          just dyff "origin/${{ github.base_ref }}" github > dyff_report.md
+          cat dyff_report.md >> $GITHUB_STEP_SUMMARY
