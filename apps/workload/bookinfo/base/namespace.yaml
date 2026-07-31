@@ -4,5 +4,5 @@ kind: Namespace
 metadata:
   name: bookinfox
   labels:
-    istio-discovery: enabled
+    istio-discovery: disabled
     istio-injection: enabled
