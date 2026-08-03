@@ -1,12 +1,12 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - https://github.com/redhat-cop/gitops-catalog.git/openshift-gitops-operator/instance/base?ref=6f01451e87ef85a436b49a0287018e3c57bf9c93
+  - https://github.com/redhat-cop/gitops-catalog.git/openshift-gitops-operator/instance/base?ref=7727f2425149abf9e061665c6d1268a70238c138
 components:
-  - https://github.com/redhat-cop/gitops-catalog.git/openshift-gitops-operator/instance/components/annotation-resource-tracking?ref=6f01451e87ef85a436b49a0287018e3c57bf9c93
-  - https://github.com/redhat-cop/gitops-catalog.git/openshift-gitops-operator/instance/components/application-controller-cluster-admin?ref=6f01451e87ef85a436b49a0287018e3c57bf9c93
-  - https://github.com/redhat-cop/gitops-catalog.git/openshift-gitops-operator/instance/components/edge-termination?ref=6f01451e87ef85a436b49a0287018e3c57bf9c93
-  - https://github.com/redhat-cop/gitops-catalog.git/openshift-gitops-operator/instance/components/enable-status-badge?ref=6f01451e87ef85a436b49a0287018e3c57bf9c93
-  - https://github.com/redhat-cop/gitops-catalog.git/openshift-gitops-operator/instance/components/health-check-olm?ref=6f01451e87ef85a436b49a0287018e3c57bf9c93
-  - https://github.com/redhat-cop/gitops-catalog.git/openshift-gitops-operator/instance/components/kustomize-build-enable-helm?ref=6f01451e87ef85a436b49a0287018e3c57bf9c93
+  - https://github.com/redhat-cop/gitops-catalog.git/openshift-gitops-operator/instance/components/annotation-resource-tracking?ref=7727f2425149abf9e061665c6d1268a70238c138
+  - https://github.com/redhat-cop/gitops-catalog.git/openshift-gitops-operator/instance/components/application-controller-cluster-admin?ref=7727f2425149abf9e061665c6d1268a70238c138
+  - https://github.com/redhat-cop/gitops-catalog.git/openshift-gitops-operator/instance/components/edge-termination?ref=7727f2425149abf9e061665c6d1268a70238c138
+  - https://github.com/redhat-cop/gitops-catalog.git/openshift-gitops-operator/instance/components/enable-status-badge?ref=7727f2425149abf9e061665c6d1268a70238c138
+  - https://github.com/redhat-cop/gitops-catalog.git/openshift-gitops-operator/instance/components/health-check-olm?ref=7727f2425149abf9e061665c6d1268a70238c138
+  - https://github.com/redhat-cop/gitops-catalog.git/openshift-gitops-operator/instance/components/kustomize-build-enable-helm?ref=7727f2425149abf9e061665c6d1268a70238c138
   - ../components/exclusions
