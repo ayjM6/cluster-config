@@ -26,8 +26,11 @@ jobs:
         run: echo "number=$(cat pr_number.txt)" >> "$GITHUB_OUTPUT"
 
       - name: Comment PR with Dyff report
-        uses: marocchino/sticky-pull-request-comment@v2
-        with:
-          header: dyff-report
-          number: ${{ steps.pr.outputs.number }}
-          path: dyff_report.md
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr comment "${{ steps.pr.outputs.number }}" \
+            --repo "${{ github.repository }}" \
+            --body-file dyff_report.md \
+            --edit-last \
+            --create-if-none
