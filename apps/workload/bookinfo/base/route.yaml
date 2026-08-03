@@ -1,12 +1,15 @@
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  name: istio-ingressgateway
+  name: bookinfo-gateway
 spec:
   port:
-    targetPort: http2
+    targetPort: http
   to:
     kind: Service
-    name: istio-ingressgateway
+    # Auto-provisioned by the Gateway API `Gateway/bookinfo-gateway` resource
+    # (see bookinfo-gateway.yaml pulled in via base/kustomization.yaml):
+    # Istio names it "<gateway name>-<gatewayClassName>".
+    name: bookinfo-gateway-istio
     weight: 100
   wildcardPolicy: None
