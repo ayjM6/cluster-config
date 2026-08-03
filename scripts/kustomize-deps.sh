@@ -2,6 +2,9 @@
 
 set -euo pipefail
 
+readonly SCRIPT_DIR=$(dirname "$(realpath "$0")")
+source "$SCRIPT_DIR/check-cli-tools.sh"
+
 declare -A VISITED
 readonly OLD_IFS="$IFS"
 
@@ -79,6 +82,8 @@ parse_kustomization() {
 }
 
 main() {
+	check_cli_tools yq
+
 	local start_dir="${1:-.}"
 
 	# Execute the find command and pipe to sort for clean output

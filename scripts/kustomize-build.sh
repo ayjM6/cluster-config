@@ -2,6 +2,9 @@
 
 set -euo pipefail
 
+readonly SCRIPT_DIR=$(dirname "$(realpath "$0")")
+source "$SCRIPT_DIR/check-cli-tools.sh"
+
 TARGET_DIR="target/manifests"
 BASE_DIR="."
 SKIP_MISSING=0
@@ -177,6 +180,8 @@ kustomize_build_all() {
 }
 
 main() {
+	check_cli_tools kustomize
+
 	if ! parse_args "$@"; then
 		return 1
 	fi
