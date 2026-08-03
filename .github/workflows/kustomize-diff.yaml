@@ -4,6 +4,9 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: read
+
 jobs:
   dyff-check:
     runs-on: ubuntu-latest
@@ -29,3 +32,15 @@ jobs:
         run: |
           just dyff "origin/${{ github.base_ref }}" github > dyff_report.md
           cat dyff_report.md >> $GITHUB_STEP_SUMMARY
+
+      - name: Save PR number
+        run: echo "${{ github.event.pull_request.number }}" > pr_number.txt
+
+      - name: Upload Dyff report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dyff-report
+          path: |
+            dyff_report.md
+            pr_number.txt
+          retention-days: 1
