@@ -1,0 +1,19 @@
+# Binds both bootstrap Policies to the workload-clusters Placement defined
+# in apps/hub/managed-clusters (which selects every ManagedCluster in the
+# "workload" ManagedClusterSet - i.e. workload-a and workload-b once
+# imported).
+apiVersion: policy.open-cluster-management.io/v1
+kind: PlacementBinding
+metadata:
+  name: workload-clusters-bootstrap
+placementRef:
+  apiGroup: cluster.open-cluster-management.io
+  kind: Placement
+  name: workload-clusters
+subjects:
+  - apiGroup: policy.open-cluster-management.io
+    kind: Policy
+    name: bootstrap-secrets
+  - apiGroup: policy.open-cluster-management.io
+    kind: Policy
+    name: bootstrap-gitops

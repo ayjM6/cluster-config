@@ -1,0 +1,157 @@
+# Installs OpenShift GitOps and this repo's `gitops` ApplicationSet layer
+# on every matched managed cluster, enforcing/self-healing them going
+# forward (this is why the "workload" base in bootstrap/gitops/bases does
+# NOT include a bootstrap-self ApplicationSet like the hub does - this
+# Policy is what keeps the spoke's bootstrap layer compliant instead).
+#
+# The ArgoCD instance below is a deliberately trimmed copy of
+# bootstrap/openshift-gitops/overlays/all's rendered output: it omits the
+# hub-console-plugin enablement Job/RBAC (not applicable per-spoke) and
+# resource request/limit tuning + Lua health checks (cosmetic, not required
+# for the demo to function) to keep this embedded copy readable. Policy
+# objects must be concrete/static, so this can drift from the real
+# bootstrap/openshift-gitops directory over time - see docs/demo.md for the
+# PolicyGenerator follow-up that would remove this duplication.
+apiVersion: policy.open-cluster-management.io/v1
+kind: Policy
+metadata:
+  name: bootstrap-gitops
+spec:
+  remediationAction: enforce
+  disabled: false
+  policy-templates:
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: install-openshift-gitops
+        spec:
+          remediationAction: enforce
+          severity: high
+          object-templates-raw: |
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: v1
+                kind: Namespace
+                metadata:
+                  name: openshift-gitops
+                  labels:
+                    openshift.io/cluster-monitoring: "true"
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: operators.coreos.com/v1
+                kind: OperatorGroup
+                metadata:
+                  name: openshift-gitops-operator
+                  namespace: openshift-gitops
+                spec: {}
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: operators.coreos.com/v1alpha1
+                kind: Subscription
+                metadata:
+                  name: openshift-gitops-operator
+                  namespace: openshift-gitops
+                spec:
+                  channel: latest
+                  installPlanApproval: Automatic
+                  name: openshift-gitops-operator
+                  source: redhat-operators
+                  sourceNamespace: openshift-marketplace
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: rbac.authorization.k8s.io/v1
+                kind: ClusterRoleBinding
+                metadata:
+                  name: openshift-gitops-application-controller-cluster-admin
+                roleRef:
+                  apiGroup: rbac.authorization.k8s.io
+                  kind: ClusterRole
+                  name: cluster-admin
+                subjects:
+                  - kind: ServiceAccount
+                    name: openshift-gitops-argocd-application-controller
+                    namespace: openshift-gitops
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: argoproj.io/v1beta1
+                kind: ArgoCD
+                metadata:
+                  name: openshift-gitops
+                  namespace: openshift-gitops
+                spec:
+                  kustomizeBuildOptions: --enable-helm
+                  rbac:
+                    policy: |
+                      g, system:cluster-admins, role:admin
+                      g, cluster-admins, role:admin
+                    scopes: '[groups]'
+                  resourceTrackingMethod: annotation
+                  server:
+                    insecure: true
+                    route:
+                      enabled: true
+                      tls:
+                        insecureEdgeTerminationPolicy: Redirect
+                        termination: edge
+                  sso:
+                    dex:
+                      openShiftOAuth: true
+                    provider: dex
+    - objectDefinition:
+        apiVersion: policy.open-cluster-management.io/v1
+        kind: ConfigurationPolicy
+        metadata:
+          name: install-gitops-applicationset
+        spec:
+          remediationAction: enforce
+          severity: high
+          # {{hub .ManagedClusterName hub}} resolves per-cluster when this
+          # Policy is propagated to each matched managed cluster - one
+          # Policy serves both workload-a and workload-b, each getting
+          # their own name= glob segment (matches
+          # bootstrap/gitops/overlays/workload-a|workload-b/kustomization.yaml).
+          object-templates-raw: |
+            - complianceType: musthave
+              objectDefinition:
+                apiVersion: argoproj.io/v1alpha1
+                kind: ApplicationSet
+                metadata:
+                  name: cluster-config
+                  namespace: openshift-gitops
+                spec:
+                  goTemplate: true
+                  goTemplateOptions: ["missingkey=error"]
+                  generators:
+                    - git:
+                        repoURL: https://github.com/ayjM6/cluster-config
+                        revision: HEAD
+                        directories:
+                          - path: apps/*/*/overlays/all
+                          - path: apps/*/*/overlays/workload
+                          - path: apps/*/*/overlays/workload-prod
+                          - path: 'apps/*/*/overlays/{{hub .ManagedClusterName hub}}'
+                        values:
+                          type: '{{ index .path.segments 1 }}'
+                          app: '{{ index .path.segments 2 }}'
+                  template:
+                    metadata:
+                      name: '{{ .values.app }}'
+                      labels:
+                        type: '{{ .values.type }}'
+                    spec:
+                      project: default
+                      source:
+                        repoURL: https://github.com/ayjM6/cluster-config
+                        targetRevision: HEAD
+                        path: '{{ .path.path }}'
+                      destination:
+                        name: in-cluster
+                      syncPolicy:
+                        automated:
+                          enabled: true
+                          selfHeal: true
+                          prune: true
+                        syncOptions:
+                          - ApplyOutOfSyncOnly=true
+                          - SkipDryRunOnMissingResource=true
