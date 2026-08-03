@@ -34,18 +34,10 @@ All of the above is orchestrated by the `dyff` recipe in the [Justfile](../Justf
 Requires `just`, `go`, and the following Go-installed tools on `PATH`:
 
 ```bash
-go install github.com/homeport/dyff/cmd/dyff@v1.12.0
+go install github.com/homeport/dyff/cmd/dyff@latest
 go install sigs.k8s.io/kustomize/kustomize/v5@latest
 go install github.com/mikefarah/yq/v4@latest
 ```
-
-> **`yq` is required**, not optional — `kustomize-deps.sh` silently swallows
-> `yq` errors. If `yq` is missing, dependency resolution quietly returns
-> nothing for every overlay, so changes to a shared `base/` or `component/`
-> won't be detected as affecting any overlay. This can surface as a confusing
-> `Directory '.' is not contained within the base directory` error from
-> `kustomize-build.sh`, since an empty changed-overlays list falls through to
-> a bad default of building `.` itself.
 
 Then, from the repo root with an up-to-date `origin`:
 

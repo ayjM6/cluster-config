@@ -5,6 +5,7 @@ set -euo pipefail
 
 readonly SCRIPT_DIR=$(dirname "$(realpath "$0" 2>/dev/null || echo ".")")
 readonly DEPS_CMD="$SCRIPT_DIR/kustomize-deps.sh"
+source "$SCRIPT_DIR/check-cli-tools.sh"
 
 GIT_REF="origin/HEAD"
 DIRS=()
@@ -94,6 +95,8 @@ find_changed_kustomizations() {
 }
 
 main() {
+	check_cli_tools yq
+
 	parse_args "$@"
 
 	# Verify we are inside a Git repository

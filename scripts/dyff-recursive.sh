@@ -2,6 +2,9 @@
 
 set -euo pipefail
 
+readonly SCRIPT_DIR=$(dirname "$(realpath "$0")")
+source "$SCRIPT_DIR/check-cli-tools.sh"
+
 #DIR_FROM=""
 #DIR_TO=""
 DYFF_ARGS=(-c on -s -g -b)
@@ -111,6 +114,8 @@ compare_dirs() {
 }
 
 main() {
+	check_cli_tools dyff
+
 	parse_args "$@"
 
 	if [[ ! -d "$DIR_FROM" ]]; then
