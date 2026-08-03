@@ -1,0 +1,33 @@
+name: CI Dyff Check (comment)
+
+on:
+  workflow_run:
+    workflows: ["CI Dyff Check"]
+    types: [completed]
+
+permissions:
+  pull-requests: write
+  actions: read
+
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success'
+    steps:
+      - name: Download Dyff report artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dyff-report
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Read PR number
+        id: pr
+        run: echo "number=$(cat pr_number.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Comment PR with Dyff report
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: dyff-report
+          number: ${{ steps.pr.outputs.number }}
+          path: dyff_report.md
