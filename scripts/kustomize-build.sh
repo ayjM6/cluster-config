@@ -117,7 +117,17 @@ parse_args() {
 
 kustomize_build() {
 	local build_dir="$1"
-	local abs_build_dir=$(realpath "$build_dir")
+
+	if [[ "$SKIP_MISSING" -eq 1  && ! -d "$build_dir" ]]; then
+		echo "[ ➖ ] $build_dir"
+		return 0
+	fi
+
+	local abs_build_dir
+	if ! abs_build_dir=$(realpath "$build_dir"); then
+		echo "Error: Directory '$build_dir' does not exist." >&2
+		return 1
+	fi
 
 	# Ensure that the kustomize directory is a subdirectory of the chroot/base directory
 	if [[ "$abs_build_dir" == "$ABS_BASE_DIR" || "$abs_build_dir" != "$ABS_BASE_DIR/"* ]]; then
@@ -132,10 +142,7 @@ kustomize_build() {
 	local stderr_file="$out_dir/stderr"
 	mkdir -p "$out_dir"
 
-	if [[ "$SKIP_MISSING" -eq 1  && ! -d "$build_dir" ]]; then
-		echo "[ ➖ ] $build_dir"
-		return 0
-	elif kustomize build "${KUSTOMIZE_ARGS[@]}" "$build_dir" -o "$manifest_file" 2>"$stderr_file"; then
+	if kustomize build "${KUSTOMIZE_ARGS[@]}" "$build_dir" -o "$manifest_file" 2>"$stderr_file"; then
 		echo "[ ✅ ] $build_dir"
 		return 0
 	else
