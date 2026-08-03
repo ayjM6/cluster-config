@@ -41,6 +41,11 @@ dyff ref=GIT_REF output=DEFAULT_DYFF_OUTPUT_ARG:
 
 	kust_dirs=($(just --justfile "{{ justfile() }}" changed "{{ ref }}"))
 
+	if [[ ${#kust_dirs[@]} -eq 0 ]]; then
+		echo "No overlays changed between {{ ref }} and HEAD - nothing to diff."
+		exit 0
+	fi
+
 	if [[ "{{ output }}" == git* ]]; then
 		echo '```'
 	fi
