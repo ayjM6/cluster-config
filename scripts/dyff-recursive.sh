@@ -93,7 +93,7 @@ compare_dirs() {
 
 		local dyff_out
 		set +e
-		dyff_out="$(dyff between "${DYFF_ARGS[@]}" "$file_from" "$file_to")"
+		dyff_out="$(dyff between "${dyff_args[@]}" "$file_from" "$file_to")"
 		dyff_rc="$?"
 		set -e
 
