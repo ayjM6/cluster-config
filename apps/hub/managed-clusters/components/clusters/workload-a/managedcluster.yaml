@@ -1,0 +1,17 @@
+# Registers workload-a as an RHACM managed cluster. Creating this object
+# does NOT finish the import: RHACM generates a one-time import Secret
+# (workload-a/workload-a-import in this cluster's own namespace) containing
+# a bootstrap token that must be applied on the workload-a cluster itself.
+# That step is inherently imperative/per-cluster and is documented as a
+# manual runbook step rather than being GitOps-managed - see docs/demo.md.
+apiVersion: cluster.open-cluster-management.io/v1
+kind: ManagedCluster
+metadata:
+  name: workload-a
+  labels:
+    type: workload
+    name: workload-a
+    cluster.open-cluster-management.io/clusterset: workload
+spec:
+  hubAcceptsClient: true
+  leaseDurationSeconds: 60

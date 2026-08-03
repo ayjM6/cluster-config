@@ -1,0 +1,21 @@
+apiVersion: agent.open-cluster-management.io/v1
+kind: KlusterletAddonConfig
+metadata:
+  name: workload-b
+  namespace: workload-b
+spec:
+  clusterName: workload-b
+  clusterNamespace: workload-b
+  clusterLabels:
+    type: workload
+    name: workload-b
+  applicationManager:
+    enabled: true
+  certPolicyController:
+    enabled: true
+  iamPolicyController:
+    enabled: false
+  policyController:
+    enabled: true
+  searchCollector:
+    enabled: true

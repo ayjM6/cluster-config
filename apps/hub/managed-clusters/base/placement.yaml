@@ -1,0 +1,12 @@
+# Selects every ManagedCluster that is a member of the "workload"
+# ManagedClusterSet (see clusterset.yaml/clustersetbinding.yaml). Bound to
+# the bootstrap-secrets/bootstrap-gitops Policies in
+# apps/hub/gitops-bootstrap-policies via a PlacementBinding.
+apiVersion: cluster.open-cluster-management.io/v1beta1
+kind: Placement
+metadata:
+  name: workload-clusters
+  namespace: open-cluster-management-policies
+spec:
+  clusterSets:
+    - workload
