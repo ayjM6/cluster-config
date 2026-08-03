@@ -9,6 +9,7 @@ TARGET_DIR="target/manifests"
 BASE_DIR="."
 SKIP_MISSING=0
 VERBOSE=0
+LABEL=""
 
 BUILD_DIRS=()
 KUSTOMIZE_ARGS=()
@@ -22,6 +23,7 @@ Builds Kustomize manifests for specified directories and outputs them structural
 Options:
   -b, --base-dir DIR    Base directory that must contain all build directories (Default: ".")
   -t, --target-dir DIR  Directory where generated manifests will be saved (Default: "target/manifests")
+  -l, --label LABEL     Label printed in the "Kustomize Build" header, e.g. a git ref
   -s, --skip-missing    Skip build directories that do not exist instead of throwing an error
   -v, --verbose         Enable verbose logging output
   -h, --help            Display this help text and exit
@@ -54,6 +56,16 @@ parse_args() {
 		-t | --target-dir)
 			if [[ "$#" -gt 1 && "$2" != -* ]]; then
 				TARGET_DIR="$2"
+				shift 2
+			else
+				echo -e "Error: Argument for $1 is missing.\n" >&2
+				usage >&2
+				return 1
+			fi
+			;;
+		-l | --label)
+			if [[ "$#" -gt 1 && "$2" != -* ]]; then
+				LABEL="$2"
 				shift 2
 			else
 				echo -e "Error: Argument for $1 is missing.\n" >&2
@@ -153,7 +165,11 @@ kustomize_build() {
 }
 
 kustomize_build_all() {
-	echo "---------------------------  Kustomize Build ---------------------------"
+	if [[ -n "$LABEL" ]]; then
+		echo "---------------------------  Kustomize Build ($LABEL)  ---------------------------"
+	else
+		echo "---------------------------  Kustomize Build ---------------------------"
+	fi
 	if [ $VERBOSE -gt 0 ]; then
 		echo "Base Directory   : ${BASE_DIR}"
 		echo "Target Directory : ${TARGET_DIR}"

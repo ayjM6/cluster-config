@@ -50,7 +50,7 @@ dyff ref=GIT_REF output=DEFAULT_DYFF_OUTPUT_ARG:
 		echo '```'
 	fi
 
-	"$build" --skip-missing -t "$abs_target_to" -- "${kust_dirs[@]}"
+	"$build" --skip-missing --label "HEAD" -t "$abs_target_to" -- "${kust_dirs[@]}"
 
 	# setup the worktree dir and enforce cleanup
 	worktree_dir=$(mktemp -d)
@@ -58,7 +58,7 @@ dyff ref=GIT_REF output=DEFAULT_DYFF_OUTPUT_ARG:
 	git worktree add --detach "$worktree_dir" "{{ ref }}" >/dev/null
 
 	pushd "$worktree_dir" >/dev/null;
-	"$build" --skip-missing -t "$abs_target_from" -- "${kust_dirs[@]}"
+	"$build" --skip-missing --label "{{ ref }}" -t "$abs_target_from" -- "${kust_dirs[@]}"
 	popd >/dev/null;
 
 	if [[ "{{ output }}" == git* ]]; then
