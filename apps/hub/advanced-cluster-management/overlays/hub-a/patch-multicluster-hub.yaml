@@ -4,5 +4,5 @@ metadata:
   name: multiclusterhub
   namespace: open-cluster-management
 spec:
-  #  localClusterName: hub-a
+  localClusterName: hub-a
   availabilityConfig: Basic
