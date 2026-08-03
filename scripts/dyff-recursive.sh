@@ -80,7 +80,10 @@ compare_dirs() {
 			continue
 		fi
 
-		[[ ! -f "$file_to" ]] && touch "$file_to"
+		if [[ ! -f "$file_to" ]]; then
+			mkdir -p "$(dirname "$file_to")"
+			touch "$file_to"
+		fi
 
 		# Safely scope the dyff arguments so --swap doesn't accumulate
 		local dyff_args=("${DYFF_ARGS[@]}")
