@@ -124,7 +124,7 @@ spec:
                   goTemplateOptions: ["missingkey=error"]
                   generators:
                     - git:
-                        repoURL: https://github.com/ayjM6/cluster-config
+                        repoURL: git@github.com:ayjM6/cluster-config.git
                         revision: HEAD
                         directories:
                           - path: apps/*/*/overlays/all
@@ -142,7 +142,7 @@ spec:
                     spec:
                       project: default
                       source:
-                        repoURL: https://github.com/ayjM6/cluster-config
+                        repoURL: git@github.com:ayjM6/cluster-config.git
                         targetRevision: HEAD
                         path: '{{ .path.path }}'
                       destination:

@@ -11,24 +11,32 @@ with OpenShift GitOps" talk.
   `workload-a`, `workload-b`.
 - `oc`, `kustomize`, `yq` on `PATH` (`scripts/check-cli-tools.sh` verifies
   this).
-- A GitHub auth token with read access to this repo (write access too, if
-  you want to demo the CI diff-comment flow).
+- An SSH deploy key with read access to this repo:
+
+  ```console
+  ssh-keygen -t ed25519 -f ./cluster-config-deploy-key -N ""
+  gh repo deploy-key add ./cluster-config-deploy-key.pub -R ayjM6/cluster-config --title "gitops fleet (hub + spokes)"
+  ```
+
+  Keep `./cluster-config-deploy-key` (the private half) around for step 2 -
+  don't commit it. The same key is used by the hub and, via the
+  `bootstrap-secrets` Policy, propagated to every spoke, so one key covers
+  the whole fleet.
 - A Bitwarden Machine Account API token, if you want External Secrets
   Operator to actually sync (optional - see step 2).
 
-## 1. Bootstrap the hub cluster (hub-a)
+## 1. Install OpenShift GitOps (hub-a)
 
 Against the `hub-a` cluster:
 
 ```console
 oc apply -k bootstrap/openshift-gitops/overlays/all   # operator + ArgoCD instance
-oc apply -k bootstrap/gitops/overlays/hub-a            # cluster-config + bootstrap-self ApplicationSets
 ```
 
-Wait for the `openshift-gitops` and `bootstrap-self` ApplicationSets to
-sync. This installs OpenShift GitOps, RHACM (`advanced-cluster-management`),
-the `cluster-version` and `openshift-external-secrets` apps, and - new in
-this branch - `managed-clusters` and `gitops-bootstrap-policies`.
+Wait for the `openshift-gitops` operator and Argo CD instance to come up.
+Don't apply `bootstrap/gitops/overlays/hub-a` yet - its ApplicationSets
+pull this repo over SSH, so the `git-creds` Secret from step 2 has to
+exist first or every Application will fail to sync.
 
 ## 2. Seed hub-side secrets
 
@@ -41,11 +49,22 @@ scripts/bootstrap-vault-secret.sh   # optional, only needed for External Secrets
 
 `bootstrap-git-secret.sh` writes the `git-creds` Secret both Argo CD (in
 `openshift-gitops`) and the `bootstrap-secrets` RHACM Policy (in
-`open-cluster-management-policies`) need. Run it before importing any
-spoke, or the `bootstrap-secrets` Policy will show `NonCompliant` until it
-can find a source Secret to copy from.
+`open-cluster-management-policies`) need. It prompts for the repo's SSH
+URL (`git@github.com:ayjM6/cluster-config.git`) and the path to the
+deploy key's private key file from the prerequisites step above.
 
-## 3. Import workload-a and workload-b into RHACM
+## 3. Bootstrap the rest of the fleet from Git (hub-a)
+
+```console
+oc apply -k bootstrap/gitops/overlays/hub-a   # cluster-config + bootstrap-self ApplicationSets
+```
+
+Wait for the `bootstrap-self` ApplicationSet to sync. This installs RHACM
+(`advanced-cluster-management`), the `cluster-version` and
+`openshift-external-secrets` apps, and - new in this branch -
+`managed-clusters` and `gitops-bootstrap-policies`.
+
+## 4. Import workload-a and workload-b into RHACM
 
 The `managed-clusters` app (`apps/hub/managed-clusters`) has already
 created `ManagedCluster`/`KlusterletAddonConfig` objects for workload-a and
@@ -64,7 +83,7 @@ For each of workload-a and workload-b:
 3. Confirm on hub-a: `oc get managedcluster workload-a` (and `workload-b`)
    shows `JOINED=True` and `AVAILABLE=True`.
 
-## 4. Verify the Policy-based spoke bootstrap
+## 5. Verify the Policy-based spoke bootstrap
 
 Once a spoke has joined, RHACM propagates the `bootstrap-secrets` and
 `bootstrap-gitops` Policies to it (bound via the `workload-clusters`
@@ -79,7 +98,7 @@ the `git-creds` Secret has been delivered, OpenShift GitOps has been
 installed, and the spoke's own `cluster-config` ApplicationSet exists and
 is pulling from this repo.
 
-## 5. Verify the app on each spoke
+## 6. Verify the app on each spoke
 
 Switch context to workload-a (or workload-b) and confirm the
 `openshift-service-mesh` and `bookinfo` Applications synced:
