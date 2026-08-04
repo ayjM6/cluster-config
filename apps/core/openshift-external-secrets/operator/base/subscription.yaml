@@ -3,7 +3,7 @@ kind: Subscription
 metadata:
   name: openshift-external-secrets-operator
 spec:
-  channel: tech-preview-v0.1
+  channel: stable-v1
   installPlanApproval: Automatic
   name: openshift-external-secrets-operator
   source: redhat-operators
