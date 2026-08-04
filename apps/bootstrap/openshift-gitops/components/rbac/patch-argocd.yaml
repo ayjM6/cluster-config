@@ -1,0 +1,14 @@
+apiVersion: argoproj.io/v1beta1
+kind: ArgoCD
+metadata:
+  name: openshift-gitops
+spec:
+  rbac:
+    policy: |
+      # explicit username match: dex's openshift connector only forwards real
+      # Group membership, not the system:cluster-admins virtual group, so a
+      # ClusterRoleBinding straight to a User doesn't satisfy the rules below
+      g, admin, role:admin
+      g, system:cluster-admins, role:admin
+      g, cluster-admins, role:admin
+    scopes: '[groups]'
