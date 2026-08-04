@@ -10,3 +10,14 @@ resources:
   # is intentionally omitted: it expects a hand-deployed "istio: ingressgateway"
   # workload that OSSM3's Gateway API approach doesn't create.
   - https://raw.githubusercontent.com/openshift-service-mesh/istio/release-1.24/samples/bookinfo/gateway-api/bookinfo-gateway.yaml
+patches:
+  # The Route (route.yaml) fronts the gateway Service, so it doesn't need
+  # its own cloud LoadBalancer - keep the auto-provisioned Service ClusterIP.
+  - target:
+      kind: Gateway
+      name: bookinfo-gateway
+    patch: |-
+      - op: add
+        path: /metadata/annotations
+        value:
+          networking.istio.io/service-type: ClusterIP
