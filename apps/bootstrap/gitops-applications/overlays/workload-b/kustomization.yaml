@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../bases/workload
+components:
+  - ../../components/namespace
+  - ../../components/replace-vars
+configMapGenerator:
+  - name: vars
+    behavior: merge
+    literals:
+      - name=workload-b
+      - env=workload-prod

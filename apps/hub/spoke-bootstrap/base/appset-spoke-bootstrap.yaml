@@ -1,0 +1,33 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: spoke-bootstrap
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  syncPolicy:
+    preserveResourcesOnDeletion: true
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            type: workload
+  template:
+    metadata:
+      name: 'spoke-bootstrap-{{ .name }}'
+    spec:
+      project: default
+      source:
+        repoURL: git@github.com:ayjM6/cluster-config.git
+        targetRevision: HEAD
+        path: 'clusters/{{ .name }}'
+      destination:
+        name: '{{ .name }}'
+      syncPolicy:
+        automated:
+          enabled: true
+          selfHeal: true
+          prune: true
+        syncOptions:
+          - ApplyOutOfSyncOnly=true
+          - SkipDryRunOnMissingResource=true
