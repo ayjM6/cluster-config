@@ -11,4 +11,9 @@ spec:
       g, admin, role:admin
       g, system:cluster-admins, role:admin
       g, cluster-admins, role:admin
-    scopes: '[groups]'
+    # ArgoCD RBAC only matches policy subjects against the "sub" claim and
+    # whatever claim names are listed here. dex's "sub" for OpenShift OAuth
+    # logins is an opaque connector-generated ID, never the username, so
+    # preferred_username must be pulled in explicitly for the "g, admin, ..."
+    # rule above to ever match.
+    scopes: '[groups, preferred_username]'
