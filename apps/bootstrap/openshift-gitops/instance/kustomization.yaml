@@ -11,3 +11,4 @@ components:
   - https://github.com/redhat-cop/gitops-catalog.git/openshift-gitops-operator/instance/components/kustomize-build-enable-helm?ref=7727f2425149abf9e061665c6d1268a70238c138
   - ../components/exclusions
   - ../components/rbac
+  - ../components/controller-resources
