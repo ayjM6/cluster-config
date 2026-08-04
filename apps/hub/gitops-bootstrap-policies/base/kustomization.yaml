@@ -6,3 +6,5 @@ resources:
   - placement.yaml
   - policy-bootstrap-secrets.yaml
   - placementbinding-bootstrap-secrets.yaml
+  - policy-vault-secret.yaml
+  - placementbinding-vault-secret.yaml
