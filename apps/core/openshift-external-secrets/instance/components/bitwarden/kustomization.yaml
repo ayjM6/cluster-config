@@ -4,4 +4,4 @@ resources:
   - certificate.yaml
   - issuer.yaml
 patches:
-  - path: patch-externalsecrets.yaml
+  - path: patch-externalsecretsconfig.yaml
