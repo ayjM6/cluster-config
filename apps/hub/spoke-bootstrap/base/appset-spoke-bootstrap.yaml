@@ -2,6 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
   name: spoke-bootstrap
+  namespace: openshift-gitops
 spec:
   goTemplate: true
   goTemplateOptions: ["missingkey=error"]
