@@ -7,5 +7,3 @@ resources:
   - managedclustersetbinding-policies.yaml
   - placement-argocd.yaml
   - placement-policies.yaml
-  - managedcluster-workload-a.yaml
-  - managedcluster-workload-b.yaml
