@@ -1,2 +1,6 @@
 # Rendered kustomize overlays and diff report produced by scripts/
 /target/
+
+# Deploy key private key generated per docs/demo.md prerequisites
+/cluster-config-deploy-key
+/cluster-config-deploy-key.pub

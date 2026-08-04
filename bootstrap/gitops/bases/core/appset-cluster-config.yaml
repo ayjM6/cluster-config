@@ -7,7 +7,7 @@ spec:
   goTemplateOptions: ["missingkey=error"]
   generators:
     - git:
-        repoURL: &repo https://github.com/ayjM6/cluster-config
+        repoURL: &repo git@github.com:ayjM6/cluster-config.git
         revision: &rev HEAD
         directories:
           - path: apps/*/*/overlays/all
