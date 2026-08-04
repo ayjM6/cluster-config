@@ -3,5 +3,6 @@ kind: Component
 resources:
   - certificate.yaml
   - issuer.yaml
+  - networkpolicy.yaml
 patches:
   - path: patch-externalsecretsconfig.yaml

@@ -1,0 +1,23 @@
+# Works around a gap in the operator's own auto-generated NetworkPolicies:
+# eso-sys-allow-api-server-egress-for-main-controller only permits egress to
+# :6443, so the main controller can never reach its own bitwarden-sdk-server
+# sidecar and every Bitwarden sync times out. NetworkPolicies are additive,
+# so this coexists with the operator-managed ones without conflict.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-main-controller-egress-to-bitwarden-sdk-server
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: external-secrets
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: bitwarden-sdk-server
+      ports:
+        - port: 9998
+          protocol: TCP
