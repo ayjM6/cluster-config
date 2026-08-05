@@ -434,5 +434,5 @@ tooling — is in [`docs/ci-cd.md`](docs/ci-cd.md).
 | [`clusters/`](clusters) | One directory per cluster — the actual Argo CD sync root for that cluster |
 | [`catalog/`](catalog) | Shared Kustomize Components reused across apps (e.g. sync-wave annotations) |
 | [`scripts/`](scripts) | Bootstrap and CI helper scripts |
-| [`docs/`](docs) | The talk deck, [`demo.md`](docs/demo.md), and [`ci-cd.md`](docs/ci-cd.md) |
+| [`docs/`](docs) | [`demo.md`](docs/demo.md), and [`ci-cd.md`](docs/ci-cd.md) |
 | [`Justfile`](Justfile) | `just build`, `just changed`, `just dyff`, `just clean` |
