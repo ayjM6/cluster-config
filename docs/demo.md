@@ -7,8 +7,8 @@ with OpenShift GitOps" talk.
 
 ## Prerequisites
 
-- Three OpenShift clusters reachable via `oc`/kubeconfig: `hub-a`,
-  `workload-a`, `workload-b`. It is recomended to provision three SNO clusters using this Demo Catalog item:
+- Three OpenShift clusters reachable via `oc`/kubeconfig: `hub-prod-a`,
+  `workload-prod-a`, `workload-qa-b`. It is recomended to provision three SNO clusters using this Demo Catalog item:
    https://catalog.demo.redhat.com/catalog/all?item=babylon-catalog-prod%2Fpublished.ocp4-cluster.prod.
 
   Log in to each one and rename its `oc` context to match the cluster name
@@ -16,16 +16,16 @@ with OpenShift GitOps" talk.
   (`oc config use-context <name>` to switch between them):
 
   ```console
-  oc login --server=<hub-a api url> --web
-  oc config rename-context "$(oc config current-context)" hub-a
+  oc login --server=<hub-prod-a api url> --web
+  oc config rename-context "$(oc config current-context)" hub-prod-a
 
-  oc login --server=<workload-a api url> --web
-  oc config rename-context "$(oc config current-context)" workload-a
+  oc login --server=<workload-prod-a api url> --web
+  oc config rename-context "$(oc config current-context)" workload-prod-a
 
-  oc login --server=<workload-b api url> --web
-  oc config rename-context "$(oc config current-context)" workload-b
+  oc login --server=<workload-qa-b api url> --web
+  oc config rename-context "$(oc config current-context)" workload-qa-b
 
-  oc config use-context hub-a   # start here for step 1
+  oc config use-context hub-prod-a   # start here for step 1
   ```
 
   `--web` opens a browser window to complete the OAuth login for each
@@ -48,7 +48,7 @@ with OpenShift GitOps" talk.
 
 ## 1. Seed hub-side secrets
 
-Against the `hub-a` cluster, before anything else is installed:
+Against the `hub-prod-a` cluster, before anything else is installed:
 
 ```console
 scripts/bootstrap-git-secret.sh
@@ -78,7 +78,7 @@ RHACM's hub templating can only read a Secret from the same namespace as
 the Policy - that's why `open-cluster-management-policies` gets a copy of
 both.
 
-## 2. Install OpenShift GitOps (hub-a)
+## 2. Install OpenShift GitOps (hub-prod-a)
 
 ```console
 oc apply -k apps/bootstrap/openshift-gitops/overlays/all   # operator + ArgoCD instance
@@ -93,10 +93,10 @@ Wait for the `openshift-gitops` operator and Argo CD instance to come up.
 oc get pods -n openshift-gitops -w
 ```
 
-## 3. Bootstrap the rest of the fleet from Git (hub-a)
+## 3. Bootstrap the rest of the fleet from Git (hub-prod-a)
 
 ```console
-oc apply -k apps/bootstrap/gitops-applications/overlays/hub-a   # cluster-config + bootstrap-self ApplicationSets
+oc apply -k apps/bootstrap/gitops-applications/overlays/hub-prod-a   # cluster-config + bootstrap-self ApplicationSets
 ```
 
 Wait for the `bootstrap-self` ApplicationSet to sync. This installs RHACM
@@ -111,24 +111,24 @@ oc get applications.argoproj.io -n openshift-gitops -w
 ```
 NOTE: this will take a while to complete due to the long time it takes to install RHACM.
 
-## 4. Import workload-a and workload-b into RHACM
+## 4. Import workload-prod-a and workload-qa-b into RHACM
 
 The `managed-clusters` app (`apps/hub/managed-clusters`) has already
-created `ManagedCluster`/`KlusterletAddonConfig` objects for workload-a and
-workload-b on the hub, but RHACM still needs a one-time, per-cluster import
+created `ManagedCluster`/`KlusterletAddonConfig` objects for workload-prod-a and
+workload-qa-b on the hub, but RHACM still needs a one-time, per-cluster import
 step run against each spoke - this can't be pre-baked into Git because it
 depends on a short-lived bootstrap token minted at import time.
 
-For each of workload-a and workload-b:
+For each of workload-prod-a and workload-qa-b:
 
-1. In the RHACM console on hub-a, go to **Infrastructure > Clusters**,
+1. In the RHACM console on hub-prod-a, go to **Infrastructure > Clusters**,
    select the cluster, and follow **Import cluster** to get the import
    command.
 2. Run the generated `oc apply -f ...` command(s) against that spoke
-   cluster's own context (e.g. run `oc config use-context workload-a` 
-   prior to running the import command for the `workload-a` cluster)
-3. Confirm on hub-a: `oc get managedclusters --context hub-a` shows
-   `JOINED=True` and `AVAILABLE=True` for both workload-a and workload-b.
+   cluster's own context (e.g. run `oc config use-context workload-prod-a` 
+   prior to running the import command for the `workload-prod-a` cluster)
+3. Confirm on hub-prod-a: `oc get managedclusters --context hub-prod-a` shows
+   `JOINED=True` and `AVAILABLE=True` for both workload-prod-a and workload-qa-b.
 
 ## 5. Verify secret delivery to each spoke
 
@@ -137,11 +137,11 @@ via the `workload-clusters` Placement in
 `apps/hub/gitops-bootstrap-policies`:
 
 ```console
-oc get policies -n open-cluster-management-policies --context hub-a
+oc get policies -n open-cluster-management-policies --context hub-prod-a
 ```
 
 `bootstrap-secrets` and `vault-secret` should both show `Compliant` for
-workload-a and workload-b. This means the `git-creds` and `bitwarden-token`
+workload-prod-a and workload-qa-b. This means the `git-creds` and `bitwarden-token`
 Secrets have been delivered to each spoke's `openshift-gitops` /
 `external-secrets` namespace - it does **not** by itself install anything
 on the spoke; that's step 6.
@@ -154,26 +154,26 @@ mechanisms here. Installation is driven by the hub's own Argo CD: the
 spoke as an Argo CD destination via a `GitOpsCluster` CR, and its
 `spoke-bootstrap` ApplicationSet pushes each spoke's `clusters/<name>`
 Kustomization onto it - the same manifests applied manually in step 2/3 for
-hub-a, applied automatically here.
+hub-prod-a, applied automatically here.
 
-On hub-a:
+On hub-prod-a:
 
 ```console
-oc get applications.argoproj.io -n openshift-gitops --context hub-a | grep spoke-bootstrap
+oc get applications.argoproj.io -n openshift-gitops --context hub-prod-a | grep spoke-bootstrap
 ```
 
-Look for `spoke-bootstrap-workload-a` and `spoke-bootstrap-workload-b` and
+Look for `spoke-bootstrap-workload-prod-a` and `spoke-bootstrap-workload-qa-b` and
 confirm they're `Synced`/`Healthy`. This depends on step 5 having already
 delivered `git-creds` to the spoke - if it's stuck, check the Policy
 compliance first.
 
 ## 7. Verify the app on each spoke
 
-Switch context to workload-a (or workload-b) and confirm the
+Switch context to workload-prod-a (or workload-qa-b) and confirm the
 `openshift-service-mesh` and `bookinfo` Applications synced:
 
 ```console
-oc config use-context workload-a
+oc config use-context workload-prod-a
 oc get applications.argoproj.io -n openshift-gitops
 oc get pods -n bookinfo
 oc get route -n bookinfo bookinfo-gateway -o jsonpath='{.spec.host}'

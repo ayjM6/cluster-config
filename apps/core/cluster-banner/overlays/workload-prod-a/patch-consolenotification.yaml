@@ -3,6 +3,6 @@ kind: ConsoleNotification
 metadata:
   name: cluster-banner
 spec:
-  text: "Cluster: workload-b, Environment: qa"
+  text: "Cluster: workload-prod-a, Type: workload, Environment: workload-prod"
   color: "#ffffff"
-  backgroundColor: "#c9190b"
+  backgroundColor: "#3e8635"
