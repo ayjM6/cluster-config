@@ -10,6 +10,10 @@ resources:
   # is intentionally omitted: it expects a hand-deployed "istio: ingressgateway"
   # workload that OSSM3's Gateway API approach doesn't create.
   - https://raw.githubusercontent.com/openshift-service-mesh/istio/release-1.24/samples/bookinfo/gateway-api/bookinfo-gateway.yaml
+  # Per-version Services (reviews-v1/v2/v3, etc.) that overlays route to via
+  # a per-cluster mesh HTTPRoute (GAMMA: parentRef kind Service) - see
+  # overlays/workload-*.
+  - https://raw.githubusercontent.com/openshift-service-mesh/istio/release-1.24/samples/bookinfo/platform/kube/bookinfo-versions.yaml
 patches:
   # The Route (route.yaml) fronts the gateway Service, so it doesn't need
   # its own cloud LoadBalancer - keep the auto-provisioned Service ClusterIP.
