@@ -46,7 +46,11 @@ parse_args() {
 
 find_changed_kustomizations() {
 	local target_dirs=("$@")
-	local changed_files=$(git diff --name-only --relative "$GIT_REF" | sort -u)
+	# --no-renames: with rename detection on (git's default), a deleted overlay's
+	# kustomization.yaml can get paired up with an added file elsewhere and reported
+	# as a rename instead of a delete, which would drop it from --name-only output
+	# entirely and hide the deletion from both loops below.
+	local changed_files=$(git diff --no-renames --name-only --relative "$GIT_REF" | sort -u)
 
 	# If no files have changed in the repo, exit cleanly immediately
 	if [[ -z "$changed_files" ]]; then
@@ -57,11 +61,12 @@ find_changed_kustomizations() {
 
 	# Shortcut some of the processing if any of the direct overlay kustomizations have been changed.
 	# This has the added benefit circumventing the need to process all the globs/overlays in the
-	# target ref as well in order to pick up on deleted overlays.
+	# target ref as well in order to pick up on deleted overlays. --no-renames (see above) is what
+	# makes deleted overlays actually show up here rather than being folded into a rename.
 	while IFS= read -r file; do
       [[ -n "$file" ]] || continue
       changed_overlays["$(dirname "$file")"]=1
-  done < <(git diff --name-only --relative "$GIT_REF" "${target_dirs[@]/%/\/kustomization.yaml}" "${target_dirs[@]/%/\/kustomization.yml}")
+  done < <(git diff --no-renames --name-only --relative "$GIT_REF" "${target_dirs[@]/%/\/kustomization.yaml}" "${target_dirs[@]/%/\/kustomization.yml}")
 
 	# manually expand any globs given on cmd line
 	shopt -s nullglob
