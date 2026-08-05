@@ -10,4 +10,4 @@ configMapGenerator:
     behavior: merge
     literals:
       - name=workload-a
-      - env=workload-prod
+      - env=prod
