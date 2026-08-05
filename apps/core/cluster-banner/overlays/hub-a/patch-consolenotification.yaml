@@ -1,0 +1,8 @@
+apiVersion: console.openshift.io/v1
+kind: ConsoleNotification
+metadata:
+  name: cluster-banner
+spec:
+  text: "Cluster: hub-a"
+  color: "#ffffff"
+  backgroundColor: "#0066cc"
