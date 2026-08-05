@@ -3,5 +3,5 @@ kind: Kustomization
 resources:
   - ../../base
 components:
-  - ../../components/workload-a
-  - ../../components/workload-b
+  - ../../components/workload-prod-a
+  - ../../components/workload-qa-b

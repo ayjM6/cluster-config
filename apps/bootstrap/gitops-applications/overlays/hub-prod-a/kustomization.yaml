@@ -9,5 +9,5 @@ configMapGenerator:
   - name: vars
     behavior: merge
     literals:
-      - name=hub-a
-      - env=hub
+      - name=hub-prod-a
+      - env=hub-prod

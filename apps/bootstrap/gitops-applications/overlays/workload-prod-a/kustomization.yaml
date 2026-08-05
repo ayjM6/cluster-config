@@ -9,5 +9,5 @@ configMapGenerator:
   - name: vars
     behavior: merge
     literals:
-      - name=workload-b
-      - env=qa
+      - name=workload-prod-a
+      - env=workload-prod
