@@ -3,4 +3,4 @@ kind: Kustomization
 resources:
   - https://github.com/redhat-cop/gitops-catalog.git/redhat-openshift-servicemesh-3/operator/overlays/stable-3.0?ref=7727f2425149abf9e061665c6d1268a70238c138
 components:
-  - ../../../../catalog/components/syncwaves/operators
+  - ../../../../../catalog/components/syncwaves/operators
