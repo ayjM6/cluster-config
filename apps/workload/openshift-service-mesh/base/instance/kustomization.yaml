@@ -1,4 +1,24 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - https://github.com/redhat-cop/gitops-catalog.git/redhat-openshift-servicemesh-3/instance/overlays/v1.24-latest?ref=7727f2425149abf9e061665c6d1268a70238c138
+  - https://github.com/redhat-cop/gitops-catalog.git/redhat-openshift-servicemesh-3/instance/base?ref=7727f2425149abf9e061665c6d1268a70238c138
+patches:
+  # gitops-catalog only ships version overlays up to Istio 1.24, which is
+  # now EOL upstream (see istio-ecosystem/sail-operator's versions.yaml).
+  # The operator's stable-3.4 channel (CSV v3.4.1) defaults to and
+  # supports v1.30.3, so patch the version directly instead of using a
+  # version-specific catalog overlay.
+  - target:
+      kind: IstioCNI
+      name: default
+    patch: |-
+      - op: replace
+        path: /spec/version
+        value: v1.30-latest
+  - target:
+      kind: Istio
+      name: default
+    patch: |-
+      - op: replace
+        path: /spec/version
+        value: v1.30-latest
