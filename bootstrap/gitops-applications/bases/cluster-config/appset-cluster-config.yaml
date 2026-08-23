@@ -11,12 +11,6 @@ spec:
     - git:
         repoURL: &repo git@github.com:ayjM6/cluster-config.git
         revision: &rev HEAD
-        # On a freshly bootstrapped cluster the applicationset-controller can
-        # dial repo-server before it is listening, leaving the generator in
-        # "connection refused" until the next requeue. The default (180s) makes
-        # that a ~3 minute silent stall during spoke bootstrap; 30s keeps it
-        # short. See docs/demo.md step 6.
-        requeueAfterSeconds: 30
         directories:
           - path: apps/*/*/overlays/all
           - path: apps/*/*/overlays # cluster-type

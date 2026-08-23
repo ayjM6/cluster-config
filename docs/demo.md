@@ -167,14 +167,15 @@ confirm they're `Synced`/`Healthy`. This depends on step 5 having already
 delivered `git-creds` to the spoke - if it's stuck, check the Policy
 compliance first.
 
-**NOTE** A spoke's `spoke-bootstrap-<name>` app may briefly show `Degraded`
-with the spoke's `cluster-config` ApplicationSet reporting
+**NOTE** A spoke's `spoke-bootstrap-<name>` app may show `Degraded` with the
+spoke's `cluster-config` ApplicationSet reporting
 `error generating params from git: ... connect: connection refused`. The
 ArgoCD CR and the ApplicationSet are created in the same sync, so the
 applicationset-controller can dial repo-server before it is listening.
-Nothing is broken - the git generator retries on its requeue interval
-(`requeueAfterSeconds: 30`) and the Applications appear on the next pass.
-Check with:
+Nothing is broken, but **be prepared to wait ~3 minutes**. The controller
+logs the error *once* and then sits completely idle - it does not retry
+until its default requeue interval (3m) fires, at which point it generates
+the Applications normally. Check progress with:
 
 ```console
 oc get applicationset cluster-config -n openshift-gitops --context workload-prod-a \
