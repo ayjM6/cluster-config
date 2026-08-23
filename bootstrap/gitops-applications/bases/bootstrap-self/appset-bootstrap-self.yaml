@@ -11,6 +11,9 @@ spec:
     - git:
         repoURL: &repo git@github.com:ayjM6/cluster-config.git
         revision: &rev HEAD
+        # Kept in step with the cluster-config ApplicationSet - see the note
+        # there on the repo-server startup race.
+        requeueAfterSeconds: 30
         directories:
           - path: bootstrap/*/overlays/all
           - path: bootstrap/*/overlays # cluster-type
