@@ -81,7 +81,7 @@ both.
 ## 2. Install OpenShift GitOps (hub-prod-a)
 
 ```console
-oc apply -k apps/bootstrap/openshift-gitops/overlays/all   # operator + ArgoCD instance
+oc apply -k bootstrap/openshift-gitops/overlays/all   # operator + ArgoCD instance
 ```
 
 You will need to run this command twice as the ArgoCD CRDs won't be available
@@ -96,7 +96,7 @@ oc get pods -n openshift-gitops -w
 ## 3. Bootstrap the rest of the fleet from Git (hub-prod-a)
 
 ```console
-oc apply -k apps/bootstrap/gitops-applications/overlays/hub-prod-a   # cluster-config + bootstrap-self ApplicationSets
+oc apply -k bootstrap/gitops-applications/overlays/hub-prod-a   # cluster-config + bootstrap-self ApplicationSets
 ```
 
 Wait for the `bootstrap-self` ApplicationSet to sync. This installs RHACM

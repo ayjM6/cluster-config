@@ -166,10 +166,11 @@ An app only needs the overlay directories it actually uses — one of
 
 In this example, apps are also grouped by type, for ease of organisation of the repo:
 ```
+bootstrap/      # OpenShift GitOps itself + the ApplicationSets that drive everything else
+├── openshift-gitops/       # operator + ArgoCD instance — overlays/all
+└── gitops-applications/    # cluster-config & bootstrap-self ApplicationSets — overlays/<name>
+
 apps/
-├── bootstrap/    # OpenShift GitOps itself + the ApplicationSets that drive everything else
-│   ├── openshift-gitops/       # operator + ArgoCD instance — overlays/all
-│   └── gitops-applications/    # cluster-config & bootstrap-self ApplicationSets — overlays/<name>
 ├── core/         # deployed on every cluster
 │   ├── cluster-banner/          # overlays/hub-prod-a, overlays/workload-prod-a, overlays/workload-qa-b
 │   └── openshift-external-secrets/  # overlays/all
@@ -249,11 +250,11 @@ each spoke with no per-cluster overlay needed at all.
 
 Each cluster's `type`, `env`, and `name` are set via a `vars` ConfigMap in
 that cluster's overlay under
-[`apps/bootstrap/gitops-applications/overlays/<cluster>/kustomization.yaml`](apps/bootstrap/gitops-applications/overlays).
+[`bootstrap/gitops-applications/overlays/<cluster>/kustomization.yaml`](bootstrap/gitops-applications/overlays).
 For example, `workload-prod-a`'s overlay:
 
 ```yaml
-# apps/bootstrap/gitops-applications/overlays/workload-prod-a/kustomization.yaml
+# bootstrap/gitops-applications/overlays/workload-prod-a/kustomization.yaml
 resources:
   - ../../bases/workload      # brings in type=workload from bases/workload/kustomization.yaml
 components:
@@ -269,13 +270,13 @@ configMapGenerator:
 
 `type` isn't set directly in each cluster's overlay — it comes for free from
 which *base* the overlay points at
-([`bases/hub`](apps/bootstrap/gitops-applications/bases/hub) vs.
-[`bases/workload`](apps/bootstrap/gitops-applications/bases/workload)), so a
+([`bases/hub`](bootstrap/gitops-applications/bases/hub) vs.
+[`bases/workload`](bootstrap/gitops-applications/bases/workload)), so a
 cluster can't accidentally end up with an inconsistent `type`.
 
 These `vars` values don't just sit in a ConfigMap — a Kustomize
 [`replace-vars`
-Component](apps/bootstrap/gitops-applications/components/replace-vars) uses
+Component](bootstrap/gitops-applications/components/replace-vars) uses
 `replacements` to substitute `data.type`, `data.env`, and `data.name` into
 the `cluster-config` and `bootstrap-self` ApplicationSets' own generator
 directories (`spec.generators.0.git.directories.*.path`). That's what turns
@@ -293,8 +294,8 @@ no per-cluster app list to maintain.
 
 ```yaml
 resources:
-  - ../../apps/bootstrap/openshift-gitops/overlays/all
-  - ../../apps/bootstrap/gitops-applications/overlays/hub-prod-a
+  - ../../bootstrap/openshift-gitops/overlays/all
+  - ../../bootstrap/gitops-applications/overlays/hub-prod-a
 ```
 
 Bootstrapping a bare hub cluster is three steps (full detail, including the
@@ -305,9 +306,9 @@ exact secret-seeding scripts, in [`docs/demo.md`](docs/demo.md)):
    the `git-creds` Secret Argo CD needs to pull this repo, before Argo CD
    itself exists.
 2. **Install OpenShift GitOps**:
-   `oc apply -k apps/bootstrap/openshift-gitops/overlays/all`
+   `oc apply -k bootstrap/openshift-gitops/overlays/all`
 3. **Bootstrap the rest of the fleet from Git**:
-   `oc apply -k apps/bootstrap/gitops-applications/overlays/hub-prod-a`
+   `oc apply -k bootstrap/gitops-applications/overlays/hub-prod-a`
 
 Step 3 deploys the `cluster-config` and `bootstrap-self` ApplicationSets from
 [the section above](#setting-a-clusters-typeenvname),
@@ -342,7 +343,7 @@ sequenceDiagram
     Note over Hub,Spoke: 4. Install push (GitOpsCluster + spoke-bootstrap ApplicationSet)
     Hub ->> Spoke: Application spoke-bootstrap-NAME applies clusters/NAME
     Note over Spoke,Git: 5. Spoke takes over
-    Spoke ->> Git: spoke's own cluster-config / bootstrap-self ApplicationSets sync apps/*/*/overlays/all,workload,ENV,NAME
+    Spoke ->> Git: spoke's own cluster-config / bootstrap-self ApplicationSets sync apps/*/*/overlays and bootstrap/*/overlays (all,workload,ENV,NAME)
 ```
 
 Concretely, in this repo:
@@ -374,7 +375,7 @@ Concretely, in this repo:
    hand.
 5. **Add `clusters/<name>/kustomization.yaml`** (mirroring
    `clusters/workload-prod-a`) and a matching
-   `apps/bootstrap/gitops-applications/overlays/<name>/` with the new
+   `bootstrap/gitops-applications/overlays/<name>/` with the new
    cluster's `vars` (`name=<name>`, `env=<env>`) — this is what step 4
    actually applies.
 6. From here the spoke's own `cluster-config`/`bootstrap-self`
@@ -430,7 +431,8 @@ tooling — is in [`docs/ci-cd.md`](docs/ci-cd.md).
 
 | Path | Contents |
 |---|---|
-| [`apps/`](apps) | All app manifests (`base/` + `overlays/`), grouped into `bootstrap/`, `core/`, `hub/`, `workload/` |
+| [`bootstrap/`](bootstrap) | OpenShift GitOps itself + the `cluster-config`/`bootstrap-self` `ApplicationSet`s that drive everything else |
+| [`apps/`](apps) | All other app manifests (`base/` + `overlays/`), grouped into `core/`, `hub/`, `workload/` |
 | [`clusters/`](clusters) | One directory per cluster — the actual Argo CD sync root for that cluster |
 | [`catalog/`](catalog) | Shared Kustomize Components reused across apps (e.g. sync-wave annotations) |
 | [`scripts/`](scripts) | Bootstrap and CI helper scripts |
