@@ -1,6 +1,20 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - https://github.com/redhat-cop/gitops-catalog.git/redhat-openshift-servicemesh-3/operator/overlays/stable-3.0?ref=7727f2425149abf9e061665c6d1268a70238c138
+  - https://github.com/redhat-cop/gitops-catalog.git/redhat-openshift-servicemesh-3/operator/base?ref=7727f2425149abf9e061665c6d1268a70238c138
 components:
   - ../../../../../catalog/components/syncwaves/operators
+patches:
+  # gitops-catalog only ships a channel overlay for stable-3.0. The
+  # actual redhat-operators catalog (checked via `oc get packagemanifest
+  # servicemeshoperator3 -o jsonpath='{.status.channels[*].name}'`) now
+  # offers stable-3.1 through stable-3.4, with stable-3.4 (CSV v3.4.1)
+  # matching the "stable" default channel, so patch the channel directly
+  # instead of using a channel-specific catalog overlay.
+  - target:
+      kind: Subscription
+      name: servicemeshoperator3
+    patch: |-
+      - op: replace
+        path: /spec/channel
+        value: stable-3.4
