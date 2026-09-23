@@ -27,10 +27,14 @@ Options:
   -s, --skip-missing    Skip build directories that do not exist instead of throwing an error
   -v, --verbose         Enable verbose logging output
   -h, --help            Display this help text and exit
-  * Any other flags (e.g., --enable-helm) are passed straight to 'kustomize build'.
+  * Any other flag (e.g., --enable-helm) is passed straight to 'kustomize build' as
+    a single token. A flag that takes a value must be given as --flag=value (not
+    --flag value) -- there's no way to tell here whether an unrecognized flag
+    consumes the next token, so it never tries to.
 
 Arguments:
   --                    Explicitly separates options from positional directory arguments.
+                        Required if any DIRECTORIES are given after an unrecognized flag.
   DIRECTORIES           One or more directories to build. Defaults to "." if omitted.
                         Also accepts directory paths passed via stdin.
 
@@ -94,11 +98,13 @@ parse_args() {
 			break
 			;;
 		-*)
+			# There's no registry of which pass-through kustomize flags take a
+			# value, so guessing that a following non-flag token belongs to this
+			# flag risks silently swallowing a real positional directory (e.g.
+			# `--enable-helm somedir` would eat "somedir" as if it were
+			# --enable-helm's argument). Pass the flag through as a single
+			# token; a caller needing to supply a value uses --flag=value.
 			KUSTOMIZE_ARGS+=("$1")
-			if [[ "$#" -gt 1 && "$2" != -* ]]; then
-				KUSTOMIZE_ARGS+=("$2")
-				shift
-			fi
 			shift
 			;;
 		*)
