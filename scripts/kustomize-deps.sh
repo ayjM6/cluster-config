@@ -42,15 +42,17 @@ get_kustomization_file() {
 # recursively parses all the files from a given kustomization
 parse_kustomization() {
 	local target="$1"
+	local kust_file
 
 	# Use absolute paths to keep internal tracking consistent
 	local kust_dir=$(realpath "$target" 2>/dev/null || echo "")
 
 	# Find the kustomziation file
-	if [[ -d "$kust_dir" ]]; then
-		if ! kust_file=$(get_kustomization_file "$kust_dir"); then
-			return
-		fi
+	if [[ ! -d "$kust_dir" ]]; then
+		return
+	fi
+	if ! kust_file=$(get_kustomization_file "$kust_dir"); then
+		return
 	fi
 
 	# Infinite loop guard
@@ -85,6 +87,11 @@ main() {
 	check_cli_tools yq
 
 	local start_dir="${1:-.}"
+
+	if [[ ! -d "$start_dir" ]]; then
+		echo "Error: '$start_dir' is not a directory, or does not exist." >&2
+		exit 1
+	fi
 
 	# Execute the find command and pipe to sort for clean output
 	parse_kustomization "$start_dir"
