@@ -83,7 +83,15 @@ find_changed_kustomizations() {
 			continue
 		fi
 
-		local kust_files=$("$DEPS_CMD" "$dir" 2>/dev/null | sort -u)
+		# Split declaration from assignment: `local kust_files=$(...)` would discard
+		# the command substitution's exit status (the `local` builtin's own success
+		# is what `set -e` sees instead), silently hiding a real failure here as
+		# "this overlay has no dependencies" instead of failing the change check.
+		local kust_files
+		if ! kust_files=$("$DEPS_CMD" "$dir" | sort -u); then
+			echo "Error: '$DEPS_CMD' failed for '$dir'." >&2
+			exit 1
+		fi
 		if [[ -z "$kust_files" ]]; then
 			continue
 		fi
