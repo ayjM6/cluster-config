@@ -63,10 +63,19 @@ find_changed_kustomizations() {
 	# This has the added benefit circumventing the need to process all the globs/overlays in the
 	# target ref as well in order to pick up on deleted overlays. --no-renames (see above) is what
 	# makes deleted overlays actually show up here rather than being folded into a rename.
+	#
+	# :(glob) is required here: git's default pathspec matching lets a bare '*' cross '/'
+	# (e.g. 'a/*/kustomization.yaml' matches 'a/b/c/kustomization.yaml'), unlike the shell
+	# globbing used below for the same target_dirs patterns. Without it, this shortcut could
+	# report a directory nested deeper than the intended overlay dir as "changed".
+	local kustomization_pathspecs=()
+	for dir in "${target_dirs[@]}"; do
+		kustomization_pathspecs+=(":(glob)$dir/kustomization.yaml" ":(glob)$dir/kustomization.yml")
+	done
 	while IFS= read -r file; do
       [[ -n "$file" ]] || continue
       changed_overlays["$(dirname "$file")"]=1
-  done < <(git diff --no-renames --name-only --relative "$GIT_REF" "${target_dirs[@]/%/\/kustomization.yaml}" "${target_dirs[@]/%/\/kustomization.yml}")
+  done < <(git diff --no-renames --name-only --relative "$GIT_REF" "${kustomization_pathspecs[@]}")
 
 	# manually expand any globs given on cmd line
 	shopt -s nullglob
