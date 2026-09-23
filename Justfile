@@ -54,7 +54,7 @@ dyff ref=GIT_REF output=DEFAULT_DYFF_OUTPUT_ARG:
 
 	# setup the worktree dir and enforce cleanup
 	worktree_dir=$(mktemp -d)
-	trap git worktree remove --force "$worktree_dir" >/dev/null 2>&1 || rm -rf "$worktree_dir" EXIT
+	trap 'git worktree remove --force "$worktree_dir" >/dev/null 2>&1 || rm -rf "$worktree_dir"' EXIT
 	git worktree add --detach "$worktree_dir" "{{ ref }}" >/dev/null
 
 	pushd "$worktree_dir" >/dev/null;
