@@ -1,0 +1,9 @@
+apiVersion: argoproj.io/v1beta1
+kind: ArgoCD
+metadata:
+  name: openshift-gitops
+spec:
+  # lets ApplicationSets use spec.strategy (RollingSync), see cluster-config
+  applicationSet:
+    extraCommandArgs:
+      - --enable-progressive-syncs

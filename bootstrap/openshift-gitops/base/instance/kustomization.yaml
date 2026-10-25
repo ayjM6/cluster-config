@@ -12,3 +12,4 @@ components:
   - ../../components/exclusions
   - ../../components/rbac
   - ../../components/controller-resources
+  - ../../components/progressive-syncs
