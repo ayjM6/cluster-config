@@ -194,9 +194,12 @@ oc get pods -n bookinfo
 oc get route -n bookinfo bookinfo-gateway -o jsonpath='{.spec.host}'
 ```
 
-**NOTE** Due to a race condition between the `openshift-service-mesh` and
-`bookinfo` applications, you may need to restart all the bookinfo pods so
-that they correctly pick up their envoy sidecars.
+**NOTE** `bookinfo` syncs its `bookinfo-gateway` Gateway a wave early and
+waits for it to be Healthy, which only happens once the Service Mesh control
+plane (istiod) is up and has programmed it. Until then the `bookinfo`
+Application shows its sync as still running, and none of the bookinfo pods
+exist yet — this keeps them from starting before sidecar injection is
+available. If pods do come up without their envoy sidecars, restart them:
 ```console
 oc delete pods --all -n bookinfo
 ```
