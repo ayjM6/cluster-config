@@ -96,10 +96,14 @@ duplicate their content here.
   fronts it, patch it to `ClusterIP` via the
   `networking.istio.io/service-type` annotation instead (see commit
   `3cffac7`) rather than leaving the redundant LB.
-- **Bookinfo sidecar race**: after `openshift-service-mesh` and `bookinfo`
-  both sync, bookinfo pods can start without their Envoy sidecar due to a
-  startup race — `oc delete pods --all -n bookinfo` to restart them if
-  `/productpage` doesn't show reviews.
+- **Bookinfo sidecar race**: bookinfo pods started before istiod's sidecar
+  injection webhook exists come up without their Envoy sidecar. `bookinfo`
+  guards against this by syncing its Namespace + `bookinfo-gateway` Gateway
+  in wave `-1`: Argo CD's built-in Gateway health check stays Progressing
+  until istiod programs it, holding back the wave-0 Deployments. Keep the
+  Namespace in that wave too, or the Gateway applies before it exists. If
+  `/productpage` still doesn't show reviews, `oc delete pods --all -n
+  bookinfo` to restart them.
 - **No OCP-version-pinning overlay**: an `openshift-cluster-version` overlay
   was deliberately removed — don't reintroduce cluster-version pinning, it
   makes the demo less repeatable across OCP releases.

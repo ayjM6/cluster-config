@@ -17,6 +17,12 @@ resources:
 patches:
   # The Route (route.yaml) fronts the gateway Service, so it doesn't need
   # its own cloud LoadBalancer - keep the auto-provisioned Service ClusterIP.
+  #
+  # The Gateway also syncs a wave early: istiod is its controller, so Argo
+  # CD's built-in Gateway health check stays Progressing until istiod is up
+  # and has programmed it. That holds the bookinfo Deployments back until
+  # istiod's sidecar injection webhook is serving - otherwise pods can start
+  # without their envoy sidecar.
   - target:
       kind: Gateway
       name: bookinfo-gateway
@@ -25,3 +31,4 @@ patches:
         path: /metadata/annotations
         value:
           networking.istio.io/service-type: ClusterIP
+          argocd.argoproj.io/sync-wave: "-1"
