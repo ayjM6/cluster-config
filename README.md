@@ -121,6 +121,15 @@ spec:
       enabled: true
       selfHeal: true
       prune: true
+    syncOptions:
+      - ApplyOutOfSyncOnly=true
+      - SkipDryRunOnMissingResource=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 5m
 ```
 
 `workload-qa-b` gets the same `bookinfo` Application, just pointed at

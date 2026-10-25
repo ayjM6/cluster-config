@@ -40,3 +40,12 @@ spec:
         syncOptions:
           - ApplyOutOfSyncOnly=true
           - SkipDryRunOnMissingResource=true
+        # automated sync won't retry a failed sync of the same revision on
+        # its own, e.g. an app applied before another app has installed the
+        # CRDs it needs
+        retry:
+          limit: 10
+          backoff:
+            duration: 30s
+            factor: 2
+            maxDuration: 5m
