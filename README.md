@@ -108,6 +108,7 @@ metadata:
   name: bookinfo
   labels:
     type: workload
+    app: bookinfo
 spec:
   project: default
   source:
@@ -119,9 +120,16 @@ spec:
   syncPolicy:
     automated:
       enabled: true
-      selfHeal: true
       prune: true
 ```
+
+`cluster-config` uses a progressive sync (`RollingSync`) strategy rather than
+each Application's own automated sync: every other app is synced first, and
+`bookinfo` (matched on the `app` label) only syncs once those are all Healthy,
+so the Service Mesh control plane is up before bookinfo's pods need their
+sidecars injected. RollingSync switches autosync off and triggers syncs
+itself — the `automated` block is only kept so those syncs still prune. Only
+new commits trigger a sync; in-cluster drift is not self-healed.
 
 `workload-qa-b` gets the same `bookinfo` Application, just pointed at
 `overlays/workload-qa` instead — see [Setting a cluster's

@@ -194,9 +194,15 @@ oc get pods -n bookinfo
 oc get route -n bookinfo bookinfo-gateway -o jsonpath='{.spec.host}'
 ```
 
-**NOTE** Due to a race condition between the `openshift-service-mesh` and
-`bookinfo` applications, you may need to restart all the bookinfo pods so
-that they correctly pick up their envoy sidecars.
+`bookinfo` won't start syncing until `openshift-service-mesh` (and the
+other apps) are Healthy — `cluster-config` rolls Applications out in steps.
+Watch the rollout with:
+```console
+oc get applicationset cluster-config -n openshift-gitops \
+  -o jsonpath='{range .status.applicationStatus[*]}{.application}: step {.step} {.status}{"\n"}{end}'
+```
+
+If bookinfo pods still come up without their envoy sidecars, restart them:
 ```console
 oc delete pods --all -n bookinfo
 ```

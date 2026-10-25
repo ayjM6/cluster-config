@@ -7,6 +7,28 @@ spec:
   goTemplateOptions: ["missingkey=error"]
   syncPolicy:
     preserveResourcesOnDeletion: true
+  # requires progressive syncs to be enabled on the applicationset controller
+  # (bootstrap/openshift-gitops/components/progressive-syncs). RollingSync
+  # forces autosync off on generated Applications and triggers the syncs itself,
+  # step by step, waiting for each step to be Healthy before starting the next.
+  # Applications not matched by any step are never synced, so keep the first
+  # step a catch-all.
+  strategy:
+    type: RollingSync
+    rollingSync:
+      steps:
+        - matchExpressions:
+            - key: app
+              operator: NotIn
+              values:
+                - bookinfo
+        # bookinfo needs the mesh control plane up first, or its pods start
+        # without their envoy sidecar
+        - matchExpressions:
+            - key: app
+              operator: In
+              values:
+                - bookinfo
   generators:
     - git:
         repoURL: &repo git@github.com:ayjM6/cluster-config.git
@@ -24,6 +46,7 @@ spec:
       name: '{{ .values.app }}'
       labels:
         type: '{{ .values.type }}'
+        app: '{{ .values.app }}'
     spec:
       project: default
       source:
@@ -33,9 +56,11 @@ spec:
       destination:
         name: in-cluster
       syncPolicy:
+        # RollingSync disables automated sync and triggers the syncs itself, so
+        # selfHeal would be ignored. automated.enabled must stay true though:
+        # prune is only read from here while automated sync is enabled.
         automated:
           enabled: true
-          selfHeal: true
           prune: true
         syncOptions:
           - ApplyOutOfSyncOnly=true
