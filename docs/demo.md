@@ -99,8 +99,8 @@ oc get pods -n openshift-gitops -w
 oc apply -k bootstrap/gitops-applications/overlays/hub-prod-a   # cluster-config + bootstrap-self ApplicationSets
 ```
 
-Wait for the `bootstrap-self` ApplicationSet to sync. This installs RHACM
-(`advanced-cluster-management`), the `cluster-version` and
+Wait for the `cluster-config` ApplicationSet to sync. This installs RHACM
+(`advanced-cluster-management`), the `cluster-banner` and
 `openshift-external-secrets` apps, plus three hub-only apps that drive the
 rest of this demo: `managed-clusters`, `gitops-bootstrap-policies`, and
 `spoke-bootstrap`.
