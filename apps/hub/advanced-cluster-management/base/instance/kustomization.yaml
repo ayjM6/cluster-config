@@ -1,4 +1,4 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - https://github.com/redhat-cop/gitops-catalog.git/advanced-cluster-management/instance/base?ref=7727f2425149abf9e061665c6d1268a70238c138
+  - https://github.com/redhat-cop/gitops-catalog.git/advanced-cluster-management/instance/base?ref=2478fdfa68f5802f0196170fb6a1fcc5f233b03a
