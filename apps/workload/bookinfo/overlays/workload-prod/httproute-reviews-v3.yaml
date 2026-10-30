@@ -1,6 +1,6 @@
 # Mesh route (GAMMA: parentRefs kind Service, not Gateway) pinning
-# productpage's internal calls to the reviews Service onto the v2 backend
-# (black stars) - see base/kustomization.yaml for the per-version Services
+# productpage's internal calls to the reviews Service onto the v3 backend
+# (red stars) - see base/kustomization.yaml for the per-version Services
 # this references.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -17,5 +17,5 @@ spec:
     - backendRefs:
         - group: ""
           kind: Service
-          name: reviews-v2
+          name: reviews-v3
           port: 9080
